@@ -59,8 +59,17 @@ end
 
 function bitgrid:reset()
  memset(
-  self.a0,0,self.height*self.upr
+  self.a0,0,self.h*self.upr
  )
+end
+
+function bitgrid:randomize()
+ local a=self.a0
+ local n=self.h*self.upr*4
+ for i=1,n do
+  poke(a,flr(rnd(256)))
+  a+=1
+ end
 end
 
 ca={}
@@ -92,6 +101,10 @@ end
 function ca:reset()
  self.steps=0
  self.bitgrid:reset()
+end
+
+function ca:randomize()
+ self.bitgrid:randomize()
 end
 
 function ca:_set_zeroes_border()
@@ -246,20 +259,25 @@ function ca:set(x,y)
   a,$a|(bit0<<((x+1)%bpu_ca))
  )
 end
+
 -->8
 function _init()
  --bg=bitgrid:new(0x4400,80,64)
- gol=ca:new(0x4400,30,8)--80,64)
+ gol=ca:new(0x4400,80,64)
+ gol:randomize()
  cx=0
  cy=0
+ play=false
 end
 
 function _draw()
  cls()
 
- rectfill(
-  cx+23,cy+31,cx+25,cy+33,10
- )
+ if not play then
+  rectfill(
+   cx+23,cy+31,cx+25,cy+33,10
+  )
+ end
  
  color()
  for x=0,gol.w-1 do
@@ -292,6 +310,9 @@ function _update()
   end
  end
  if btnp(🅾️) then
+  play=not play
+ end
+ if play then
   gol:step()
  end
 end
