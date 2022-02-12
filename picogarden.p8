@@ -305,40 +305,82 @@ function ca:set(x,y)
 end
 
 -->8
+function init_expand()
+ local expand={}
+
+ for i=0,255 do
+  local x=i>>16
+  x=(x|x<<12)&0x000f.000f
+  x=(x|x<< 6)&0x0303.0303
+  x=(x|x<< 3)&0x1111.1111
+  expand[i]=x
+ end
+
+ return expand
+end
+
 function _init()
  gols={}
  for i=1,4 do
   gols[i]=ca:new(
    0x4400+i*6*64,80,64,true
   )
+  --gols[i]:reset()
   gols[i]:randomize()
  end
  cx=0
  cy=0
  play=false
  t=0
+
+ expand=init_expand()
 end
 
 function _draw()
  cls()
 
- if not play then
-  rectfill(
-   cx+23,cy+31,cx+25,cy+33,10
-  )
- end
- 
- for x=0,79 do
+ local d0=0x6000+12
+ for i=1,1 do
+  local bg=gols[i].bitgrid
   for y=0,63 do
-   local v=0
-   for i=1,4 do
-    if gols[i]:get(x,y) then
-     v+=1<<(i-1)
+   local d=d0+y*64
+   local rb=80
+   local a=bg.a0+(y+1)*gols[i].bpr
+   local rbpu=bpu_ca
+   while rb>0 do
+    local v
+    local nb=min(rbpu,rb)
+    if rbpu>=8 then
+     v=(
+      $a>>>(bpu_ca-rbpu)
+     )&0x0.00ff
+     rbpu-=8
+    else
+     v=$a>>>(bpu_ca-rbpu)
+     --todo
+     a+=4
+     v|=($a<<rbpu)&0x0.00ff
+     rbpu=bpu_ca-(8-rbpu)
     end
-	  end
-	  pset(x+24,y+32,v)
+    rb-=8
+    v=v<<16
+    poke4(
+     d,expand[v]
+    )
+    d+=4
+   end
+   for x=0,79 do
+    if gols[i]:get(x,y) then
+     pset(x+24,y+64,7)
+    end
+   end
   end
  end
+ color(10)
+ pset(cx+23,cy+64)
+ pset(cx+25,cy+64)
+ pset(cx+24,cy+63)
+ pset(cx+24,cy+65)
 end
 
 function _update()
@@ -355,6 +397,11 @@ function _update()
   cx=(cx+1)%80
  end
  if btnp(❎) then
+  if gols[1]:get(cx,cy) then
+   gols[1]:clr(cx,cy)
+  else
+   gols[1]:set(cx,cy)
+  end
  end
  if btnp(🅾️) then
   play=not play
