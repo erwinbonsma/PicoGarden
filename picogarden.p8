@@ -323,7 +323,7 @@ function _init()
  gols={}
  for i=1,4 do
   gols[i]=ca:new(
-   0x4400+i*6*64,80,64,true
+   0x4400+i*16*64,80,64,true
   )
   --gols[i]:reset()
   gols[i]:randomize()
@@ -340,7 +340,7 @@ function _draw()
  cls()
 
  local d0=0x6000+12
- for i=1,1 do
+ for i=1,4 do
   local bg=gols[i].bitgrid
   for y=0,63 do
    local d=d0+y*64
@@ -365,22 +365,26 @@ function _draw()
     rb-=8
     v=v<<16
     poke4(
-     d,expand[v]
+     d,$d|(expand[v]<<(i-1))
     )
     d+=4
    end
-   for x=0,79 do
-    if gols[i]:get(x,y) then
-     pset(x+24,y+64,7)
-    end
-   end
+   --for x=0,79 do
+   -- if gols[i]:get(x,y) then
+   --  pset(x+24,y+64,7)
+   -- end
+   --end
   end
+  print("steps="..gols[i].steps,0,60+i*6,1<<(i-1))
  end
- color(10)
- pset(cx+23,cy+64)
- pset(cx+25,cy+64)
- pset(cx+24,cy+63)
- pset(cx+24,cy+65)
+
+ if not play then
+  color(10)
+  pset(cx+23,cy+64)
+  pset(cx+25,cy+64)
+  pset(cx+24,cy+63)
+  pset(cx+24,cy+65)
+ end
 end
 
 function _update()
@@ -408,7 +412,7 @@ function _update()
  end
  if play then
   t+=1
-  if t%2==0 then
+  if t%1==0 then
    for i=1,4 do
     gols[i]:step()
    end
