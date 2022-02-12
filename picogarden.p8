@@ -306,8 +306,13 @@ end
 
 -->8
 function _init()
- gol=ca:new(0x4400,80,64,true)
- gol:randomize()
+ gols={}
+ for i=1,4 do
+  gols[i]=ca:new(
+   0x4400+i*6*64,80,64,true
+  )
+  gols[i]:randomize()
+ end
  cx=0
  cy=0
  play=false
@@ -323,16 +328,17 @@ function _draw()
   )
  end
  
- color()
- for x=0,gol.w-1 do
-  for y=0,gol.h-1 do
-   if gol:get(x,y) then
-    pset(x+24,y+32,6)
-   end
+ for x=0,79 do
+  for y=0,63 do
+   local v=0
+   for i=1,4 do
+    if gols[i]:get(x,y) then
+     v+=1<<(i-1)
+    end
+	  end
+	  pset(x+24,y+32,v)
   end
  end
-
- print("steps="..gol.steps,0,0,7)
 end
 
 function _update()
@@ -349,11 +355,6 @@ function _update()
   cx=(cx+1)%80
  end
  if btnp(❎) then
-  if gol:get(cx,cy) then
-   gol:clr(cx,cy)
-  else
-   gol:set(cx,cy)
-  end
  end
  if btnp(🅾️) then
   play=not play
@@ -361,7 +362,9 @@ function _update()
  if play then
   t+=1
   if t%2==0 then
-   gol:step()
+   for i=1,4 do
+    gols[i]:step()
+   end
   end
  end
 end
