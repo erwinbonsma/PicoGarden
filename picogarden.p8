@@ -44,22 +44,24 @@ end
 
 function bitgrid:get(x,y)
  local a=self:_address(x,y)
- return (($a>>(x%bpu))&0x1)==0x1
+ return (
+  ($a>>>(x%bpu))&bit0
+ )==bit0
 end
 
 function bitgrid:set(x,y)
  local a=self:_address(x,y)
- poke4(a,$a|(0x1<<(x%bpu)))
+ poke4(a,$a|(bit0<<(x%bpu)))
 end
 
 function bitgrid:clr(x,y)
  local a=self:_address(x,y)
- poke4(a,$a&~(0x1<<(x%bpu)))
+ poke4(a,$a&~(bit0<<(x%bpu)))
 end
 
 function bitgrid:reset()
  memset(
-  self.a0,0,self.h*self.upr
+  self.a0,0,self.h*self.upr*4
  )
 end
 
@@ -87,9 +89,6 @@ function ca:new(
  o.bitgrid=bitgrid:new(
   address,o.upr*bpu,height+2
  )
- printh("upr="..o.upr.."/"..
-  o.bitgrid.upr)
- printh("bpr"..o.bpr)
  o.w=width
  o.h=height
  o.wraps=wraps
@@ -134,7 +133,52 @@ function ca:_set_zeroes_border()
 end
 
 function ca:_set_wrapping_border()
- --todo
+ local bg=self.bitgrid
+
+ -- top row
+ memcpy(
+  bg.a0,
+  bg.a0+(bg.h-2)*self.bpr,
+  self.bpr
+ )
+ -- bottom row
+ memcpy(
+  bg.a0+(bg.h-1)*self.bpr,
+  bg.a0+self.bpr,
+  self.bpr
+ )
+
+ -- left and right colums
+ local sh_l_dst=0
+ local sh_l_src=1
+ local sh_r_dst=self.w%bpu_ca+1
+ local sh_r_src=sh_r_dst-1
+ local al=bg.a0+self.bpr
+ local ar=bg.a0+self.bpr*2-4
+ for i=1,bg.h do
+  -- clear old bit
+  poke4(
+   al,$al&~(bit0<<sh_l_dst)
+  )
+  poke4(
+   ar,$ar&~(bit0<<sh_r_dst)
+  )
+
+  -- copy wrapped bit
+  poke4(
+   al,
+   $al|(($ar&(bit0<<sh_r_src))
+        >>>(sh_r_src-sh_l_dst))
+  )
+  poke4(
+   ar,
+   $ar|(($al&(bit0<<sh_l_src))
+        <<(sh_r_dst-sh_l_src))
+  )
+
+  al+=self.bpr
+  ar+=self.bpr
+ end
 end
 
 function ca:_set_border()
@@ -262,12 +306,12 @@ end
 
 -->8
 function _init()
- --bg=bitgrid:new(0x4400,80,64)
- gol=ca:new(0x4400,80,64)
+ gol=ca:new(0x4400,80,64,true)
  gol:randomize()
  cx=0
  cy=0
  play=false
+ t=0
 end
 
 function _draw()
@@ -283,10 +327,12 @@ function _draw()
  for x=0,gol.w-1 do
   for y=0,gol.h-1 do
    if gol:get(x,y) then
-    pset(x+24,y+32)
+    pset(x+24,y+32,6)
    end
   end
  end
+
+ print("steps="..gol.steps,0,0,7)
 end
 
 function _update()
@@ -313,7 +359,10 @@ function _update()
   play=not play
  end
  if play then
-  gol:step()
+  t+=1
+  if t%2==0 then
+   gol:step()
+  end
  end
 end
 __gfx__
