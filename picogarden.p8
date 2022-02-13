@@ -88,24 +88,58 @@ function bitgrid:randomize()
  end
 end
 
-ca={}
-ca_rows=0x4300
-function ca:new(
- address,width,height,wraps
+ca_specs={}
+function ca_specs:new(
+ width,height,wraps
 )
  local o=setmetatable({},self)
  self.__index=self
+
+ o.w=width
+ o.h=height
+ o.wraps=wraps
 
  -- units per row
  o.upr=width\bpu_ca+1
  -- bytes per row
  o.bpr=4*o.upr
+
+ -- bit grid dimensions. it is
+ -- larger due to border and
+ -- duplicate bit at unit
+ -- boundary
+ o.bg_w=o.upr*bpu
+ o.bg_h=height+2
+
+ -- masks with valid bits
+ local mask_c=~(bit0<<bpu_ca)
+ local mask_l=mask_c&~bit0
+ local mask_r=mask_c
+ if (ca.upr==1) mask_r=mask_l
+
+ -- #bits in last unit
+ local nblu=width%bpu_ca+1
+ if nblu<bpu then
+  mask_r&=~0>>>(bpu-nblu)
+ end
+
+ o.mask_c=mask_c
+ o.mask_r=mask_r
+ o.mask_l=mask_l
+
+ return o
+end
+
+ca={}
+ca_rows=0x4300
+function ca:new(address,specs)
+ local o=setmetatable({},self)
+ self.__index=self
+
+ o.specs=specs
  o.bitgrid=bitgrid:new(
-  address,o.upr*bpu,height+2
+  address,specs.bg_w,specs.bg_h
  )
- o.w=width
- o.h=height
- o.wraps=wraps
  o.steps=0
 
  return o
@@ -122,25 +156,24 @@ end
 
 function ca:_set_zeroes_border()
  local bg=self.bitgrid
+ local specs=self.specs
 
  -- top row
- memset(
-  bg.a0,0,self.upr*4
- )
+ memset(bg.a0,0,specs.bpr)
  -- bottom row
  memset(
-  bg.a0+(bg.h-1)*self.bpr,0,
-  self.bpr
+  bg.a0+(bg.h-1)*specs.bpr,
+  0,specs.bpr
  )
  -- left/right columns
  local bitmask_l=~bit0
- local bitmask_r=~(bit0<<(
-  (self.w+1)%bpu_ca
- ))
- local a=bg.a0+self.upr*4
- for y=1,self.h-1 do
+ local bitmask_r=~(
+  bit0<<((specs.w+1)%bpu_ca)
+ )
+ local a=bg.a0+specs.bpr
+ for i=1,specs.h do
   poke4(a,$a&bitmask_l)
-  a+=self.bpr-4
+  a+=specs.bpr-4
   poke4(a,$a&bitmask_r)
   a+=4
  end
@@ -148,15 +181,16 @@ end
 
 function ca:_set_wrapping_border()
  local bg=self.bitgrid
+ local specs=self.specs
 
  -- left and right colums
  local sh_l_dst=0
  local sh_l_src=1
- local sh_r_dst=self.w%bpu_ca+1
+ local sh_r_dst=specs.w%bpu_ca+1
  local sh_r_src=sh_r_dst-1
- local al=bg.a0+self.bpr
- local ar=bg.a0+self.bpr*2-4
- for i=1,bg.h do
+ local al=bg.a0+specs.bpr
+ local ar=bg.a0+specs.bpr*2-4
+ for i=1,specs.h do
   -- clear old bit
   poke4(
    al,$al&~(bit0<<sh_l_dst)
@@ -177,26 +211,26 @@ function ca:_set_wrapping_border()
         <<(sh_r_dst-sh_l_src))
   )
 
-  al+=self.bpr
-  ar+=self.bpr
+  al+=specs.bpr
+  ar+=specs.bpr
  end
 
  -- top row
  memcpy(
   bg.a0,
-  bg.a0+(bg.h-2)*self.bpr,
-  self.bpr
+  bg.a0+(bg.h-2)*specs.bpr,
+  specs.bpr
  )
  -- bottom row
  memcpy(
-  bg.a0+(bg.h-1)*self.bpr,
-  bg.a0+self.bpr,
-  self.bpr
+  bg.a0+(bg.h-1)*specs.bpr,
+  bg.a0+specs.bpr,
+  specs.bpr
  )
 end
 
 function ca:_set_border()
- if self.wraps then
+ if self.specs.wraps then
   self:_set_wrapping_border()
  else
   self:_set_zeroes_border()
@@ -205,14 +239,16 @@ end
 
 function ca:_restore_right_bits()
  local bg=self.bitgrid
+ local specs=self.specs
 
- local a=bg.a0+self.bpr
- local a_max=a+self.bpr*self.h
+ local a=bg.a0+specs.bpr
+ local a_max=a+specs.bpr*specs.h
+ local mask=~(bit0<<bpu_ca)
  while a<a_max do
   -- clear bit
-  local v=$a&~(bit0<<bpu_ca)
+  local v=$a&mask
   -- copy value from next unit
-  v=v|(($(a+4)&bit0)<<bpu_ca)
+  v|=($(a+4)&bit0)<<bpu_ca
   poke4(a,v)
   a+=4
  end
@@ -220,10 +256,11 @@ end
 
 function ca:step()
  local bg=self.bitgrid
+ local specs=self.specs
 
  local r0=ca_rows
- local r1=r0+self.bpr
- local r2=r1+self.bpr
+ local r1=r0+specs.bpr
+ local r2=r1+specs.bpr
 
  self.steps+=1
 
@@ -232,17 +269,19 @@ function ca:step()
 
  local a=bg.a0
  -- init row #0 and row #1
- memcpy(r0,a,self.bpr*2)
+ memcpy(r0,a,specs.bpr*2)
 
- a+=self.bpr
- for row=1,self.h do
+ a+=specs.bpr
+ for row=1,specs.h do
   -- init row #2
-  memcpy(r2,a+self.bpr,self.bpr)
+  memcpy(
+   r2,a+specs.bpr,specs.bpr
+  )
 
   local abc_sum_prev=0
   local abc_car_prev=0
 
-  for col=0,self.bpr-1,4 do
+  for col=0,specs.bpr-1,4 do
    local above=$(r0+col)
    local below=$(r2+col)
    local currn=$(r1+col)
@@ -293,7 +332,7 @@ function ca:_address(x,y)
  return (
   self.bitgrid.a0
   +4*((x+1)\bpu_ca)
-  +self.bpr*(y+1)
+  +self.specs.bpr*(y+1)
  )
 end
 
@@ -318,7 +357,7 @@ function ca:set(x,y)
  )
 end
 
-
+-->8
 bitcounter={}
 
 function bitcounter:new()
@@ -352,39 +391,30 @@ end
 function bitcounter:count_ca_bits(
  ca,bg
 )
+ local specs=ca.specs
+
  if bg==nil then
   bg=ca.bitgrid
  else
-  assert(ca.bitgrid.w==bg.w)
-  assert(ca.bitgrid.h==bg.h)
- end
-
- local mask_c=~(bit0<<bpu_ca)
- local mask_l=mask_c&~bit0
- local mask_r=mask_c
- if (ca.upr==1) mask_r=mask_l
-
- -- #bits in last unit
- local nblu=ca.w%bpu_ca+1
- if nblu<bpu then
-  mask_r&=~0>>>(bpu-nblu)
+  assert(specs.bg_w==bg.w)
+  assert(specs.bg_h==bg.h)
  end
 
  local nbits=0
  local i=0
- local a=bg.a0+ca.bpr
- local amax=a+ca.h*ca.bpr
+ local a=bg.a0+specs.bpr
+ local amax=a+specs.h*specs.bpr
  local lookup=self.lookup
  while a<amax do
   local v
   if i==0 then
-   v=$a&mask_l
+   v=$a&specs.mask_l
    i=1
-  elseif i==ca.upr-1 then
-   v=$a&mask_r
+  elseif i==specs.upr-1 then
+   v=$a&specs.mask_r
    i=0
   else
-   v=$a&mask_c
+   v=$a&specs.mask_c
    i+=1
   end
 
@@ -397,6 +427,43 @@ function bitcounter:count_ca_bits(
  end
 
  return nbits
+end
+
+decay={}
+
+function decay:new(ca)
+ local o=setmetatable({},self)
+ self.__index=self
+
+ o.ca=ca
+ o.count=-1
+
+ return o
+end
+
+function decay:find_target()
+ local y=flr(rnd(self.ca.h))
+ local x=flr(rnd(self.ca.w))
+
+ -- find non-empty unit
+ -- todo
+end
+
+function decay:update()
+ if self.count==-1 then
+  self:find_target()
+ else
+  if
+   self.ca:get(self.x,self.y)
+  then
+   self.count+=1
+   if self.count==100 then
+    self:destroy_target()
+   end
+  else
+   self.count=-1
+  end
+ end
 end
 -->8
 function init_expand()
@@ -414,11 +481,15 @@ function init_expand()
 end
 
 function _init()
+ local specs=ca_specs:new(
+  80,64,true
+ )
+
  state={}
  state.gols={}
  for i=1,4 do
   local gol=ca:new(
-   0x4400+i*16*64,80,64,true
+   0x4400+i*16*64,specs
   )
   --gol:reset()
   gol:randomize()
@@ -442,7 +513,8 @@ function draw_gol(i,gol)
  for y=0,63 do
   local d=d0+y*64
   local rb=80
-  local a=bg.a0+(y+1)*gol.bpr
+  local a
+   =bg.a0+(y+1)*gol.specs.bpr
   local rbpu=bpu_ca
   while rb>0 do
    local v
