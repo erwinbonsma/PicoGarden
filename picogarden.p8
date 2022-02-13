@@ -149,19 +149,6 @@ end
 function ca:_set_wrapping_border()
  local bg=self.bitgrid
 
- -- top row
- memcpy(
-  bg.a0,
-  bg.a0+(bg.h-2)*self.bpr,
-  self.bpr
- )
- -- bottom row
- memcpy(
-  bg.a0+(bg.h-1)*self.bpr,
-  bg.a0+self.bpr,
-  self.bpr
- )
-
  -- left and right colums
  local sh_l_dst=0
  local sh_l_src=1
@@ -193,6 +180,19 @@ function ca:_set_wrapping_border()
   al+=self.bpr
   ar+=self.bpr
  end
+
+ -- top row
+ memcpy(
+  bg.a0,
+  bg.a0+(bg.h-2)*self.bpr,
+  self.bpr
+ )
+ -- bottom row
+ memcpy(
+  bg.a0+(bg.h-1)*self.bpr,
+  bg.a0+self.bpr,
+  self.bpr
+ )
 end
 
 function ca:_set_border()
