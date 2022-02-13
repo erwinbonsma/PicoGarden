@@ -420,18 +420,57 @@ function _init()
   local gol=ca:new(
    0x4400+i*16*64,80,64,true
   )
-  gol:reset()
-  --gol:randomize()
+  --gol:reset()
+  gol:randomize()
   add(state.gols,gol)
  end
  state.cx=0
  state.cy=0
  state.play=false
  state.t=0
+ state.wait=0
+ state.viewmask=0xf
 
  expand=init_expand()
 
  state.bitcounter=bitcounter:new()
+end
+
+function draw_gol(i,gol)
+ local d0=0x6000+12+64*32
+ local bg=gol.bitgrid
+ for y=0,63 do
+  local d=d0+y*64
+  local rb=80
+  local a=bg.a0+(y+1)*gol.bpr
+  local rbpu=bpu_ca
+  while rb>0 do
+   local v
+   local nb=min(rbpu,rb)
+   if rbpu>=8 then
+    v=(
+     $a>>>(bpu_ca-rbpu)
+    )&0x0.00ff
+    rbpu-=8
+   else
+    v=$a>>>(bpu_ca-rbpu)
+    a+=4
+    v|=($a<<rbpu)&0x0.00ff
+    rbpu=bpu_ca-(8-rbpu)
+   end
+   rb-=8
+   v=v<<16
+   poke4(
+    d,$d|(expand[v]<<(i-1))
+   )
+   d+=4
+  end
+  --for x=0,79 do
+  -- if gols[i]:get(x,y) then
+  --  pset(x+24,y+64,7)
+  -- end
+  --end
+ end
 end
 
 function _draw()
@@ -439,45 +478,16 @@ function _draw()
 
  color(6)
  for i=0,10 do
-  line(24+i*8,32,24+i*8,95)
+  --line(24+i*8,32,24+i*8,95)
  end
 
- local d0=0x6000+12+64*32
  for i,gol in pairs(state.gols) do
-  local bg=gol.bitgrid
-  for y=0,63 do
-   local d=d0+y*64
-   local rb=80
-   local a=bg.a0+(y+1)*gol.bpr
-   local rbpu=bpu_ca
-   while rb>0 do
-    local v
-    local nb=min(rbpu,rb)
-    if rbpu>=8 then
-     v=(
-      $a>>>(bpu_ca-rbpu)
-     )&0x0.00ff
-     rbpu-=8
-    else
-     v=$a>>>(bpu_ca-rbpu)
-     a+=4
-     v|=($a<<rbpu)&0x0.00ff
-     rbpu=bpu_ca-(8-rbpu)
-    end
-    rb-=8
-    v=v<<16
-    poke4(
-     d,$d|(expand[v]<<(i-1))
-    )
-    d+=4
-   end
-   --for x=0,79 do
-   -- if gols[i]:get(x,y) then
-   --  pset(x+24,y+64,7)
-   -- end
-   --end
+  if
+   state.viewmask&(0x1<<(i-1))!=0
+  then
+   draw_gol(i,gol)
   end
-  local ncells=state.bitcounter
+	 local ncells=state.bitcounter
    :count_ca_bits(gol)
   local ncells2=state.bitcounter
    :count_bits(gol.bitgrid)
@@ -502,16 +512,34 @@ end
 
 function _update()
  if btnp(⬆️) then
-  state.cy=(state.cy+63)%64
+  if state.play then
+   if (state.wait>0) state.wait-=1
+  else
+   state.cy=(state.cy+63)%64
+  end
  end
  if btnp(⬇️) then
-  state.cy=(state.cy+1)%64
+  if state.play then
+   state.wait+=1
+  else
+   state.cy=(state.cy+1)%64
+  end
  end
  if btnp(⬅️) then
-  state.cx=(state.cx+79)%80
+  if state.play then
+   state.viewmask=
+    (state.viewmask+15)%16
+  else
+   state.cx=(state.cx+79)%80
+  end
  end
  if btnp(➡️) then
-  state.cx=(state.cx+1)%80
+  if state.play then
+   state.viewmask=
+    (state.viewmask+1)%16
+  else
+   state.cx=(state.cx+1)%80
+  end
  end
  local gol=state.gols[1]
  if btnp(❎) then
@@ -524,9 +552,10 @@ function _update()
  if btnp(🅾️) then
   state.play=not state.play
  end
+
  if state.play then
   state.t+=1
-  if state.t%1==0 then
+  if state.t%(0x1<<state.wait)==0 then
    for gol in all(state.gols) do
     gol:step()
    end
