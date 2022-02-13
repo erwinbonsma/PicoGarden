@@ -3,6 +3,20 @@ version 32
 __lua__
 bit0=0x0.0001
 
+function count_bits(val)
+ assert(val==flr(val))
+ local nbits=0
+ while val!=0 do
+  if val&0x1==0x1 then
+   nbits+=1
+   val&=~0x1
+  end
+  val>>>=1
+ end
+
+ return nbits
+end
+
 -- 3x17=51 bytes
 mem_cagrid_work=0x8000
 
@@ -304,6 +318,86 @@ function ca:set(x,y)
  )
 end
 
+
+bitcounter={}
+
+function bitcounter:new()
+ local o=setmetatable({},self)
+ self.__index=self
+
+ o.lookup={}
+ for i=0,255 do
+  o.lookup[i]=count_bits(i)
+ end
+
+ return o
+end
+
+function bitcounter:count_bits(
+ bg
+)
+ local nbits=0
+ local a=bg.a0
+ local amax=a+bg.h*bg.upr*4
+ local lookup=self.lookup
+
+ while a<amax do
+  nbits+=lookup[@a]
+  a+=1
+ end
+
+ return nbits
+end
+
+function bitcounter:count_ca_bits(
+ ca,bg
+)
+ if bg==nil then
+  bg=ca.bitgrid
+ else
+  assert(ca.bitgrid.w==bg.w)
+  assert(ca.bitgrid.h==bg.h)
+ end
+
+ local mask_c=~(bit0<<bpu_ca)
+ local mask_l=mask_c&~bit0
+ local mask_r=mask_c
+ if (ca.upr==1) mask_r=mask_l
+
+ -- #bits in last unit
+ local nblu=ca.w%bpu_ca+1
+ if nblu<bpu then
+  mask_r&=~0>>>(bpu-nblu)
+ end
+
+ local nbits=0
+ local i=0
+ local a=bg.a0+ca.bpr
+ local amax=a+ca.h*ca.bpr
+ local lookup=self.lookup
+ while a<amax do
+  local v
+  if i==0 then
+   v=$a&mask_l
+   i=1
+  elseif i==ca.upr-1 then
+   v=$a&mask_r
+   i=0
+  else
+   v=$a&mask_c
+   i+=1
+  end
+
+  nbits+=lookup[v&0xff]
+  nbits+=lookup[(v>>>8)&0xff]
+  nbits+=lookup[(v<<8)&0xff]
+  nbits+=lookup[(v<<16)&0xff]
+
+  a+=4
+ end
+
+ return nbits
+end
 -->8
 function init_expand()
  local expand={}
@@ -320,32 +414,41 @@ function init_expand()
 end
 
 function _init()
- gols={}
+ state={}
+ state.gols={}
  for i=1,4 do
-  gols[i]=ca:new(
+  local gol=ca:new(
    0x4400+i*16*64,80,64,true
   )
-  --gols[i]:reset()
-  gols[i]:randomize()
+  gol:reset()
+  --gol:randomize()
+  add(state.gols,gol)
  end
- cx=0
- cy=0
- play=false
- t=0
+ state.cx=0
+ state.cy=0
+ state.play=false
+ state.t=0
 
  expand=init_expand()
+
+ state.bitcounter=bitcounter:new()
 end
 
 function _draw()
  cls()
 
- local d0=0x6000+12
- for i=1,4 do
-  local bg=gols[i].bitgrid
+ color(6)
+ for i=0,10 do
+  line(24+i*8,32,24+i*8,95)
+ end
+
+ local d0=0x6000+12+64*32
+ for i,gol in pairs(state.gols) do
+  local bg=gol.bitgrid
   for y=0,63 do
    local d=d0+y*64
    local rb=80
-   local a=bg.a0+(y+1)*gols[i].bpr
+   local a=bg.a0+(y+1)*gol.bpr
    local rbpu=bpu_ca
    while rb>0 do
     local v
@@ -357,7 +460,6 @@ function _draw()
      rbpu-=8
     else
      v=$a>>>(bpu_ca-rbpu)
-     --todo
      a+=4
      v|=($a<<rbpu)&0x0.00ff
      rbpu=bpu_ca-(8-rbpu)
@@ -375,46 +477,58 @@ function _draw()
    -- end
    --end
   end
-  print("steps="..gols[i].steps,0,60+i*6,1<<(i-1))
+  local ncells=state.bitcounter
+   :count_ca_bits(gol)
+  local ncells2=state.bitcounter
+   :count_bits(gol.bitgrid)
+  print(
+   "steps="..gol.steps
+   ..", cells="..ncells
+   .."/"..ncells2,
+   0,60+32+i*6,1<<(i-1)
+  )
  end
 
- if not play then
+ if not state.play then
   color(10)
-  pset(cx+23,cy+64)
-  pset(cx+25,cy+64)
-  pset(cx+24,cy+63)
-  pset(cx+24,cy+65)
+  local x=state.cx+25
+  local y=state.cy+32
+  pset(x-1,y)
+  pset(x+1,y)
+  pset(x,y-1)
+  pset(x,y+1)
  end
 end
 
 function _update()
  if btnp(⬆️) then
-  cy=(cy+63)%64
+  state.cy=(state.cy+63)%64
  end
  if btnp(⬇️) then
-  cy=(cy+1)%64
+  state.cy=(state.cy+1)%64
  end
  if btnp(⬅️) then
-  cx=(cx+79)%80
+  state.cx=(state.cx+79)%80
  end
  if btnp(➡️) then
-  cx=(cx+1)%80
+  state.cx=(state.cx+1)%80
  end
+ local gol=state.gols[1]
  if btnp(❎) then
-  if gols[1]:get(cx,cy) then
-   gols[1]:clr(cx,cy)
+  if gol:get(state.cx,state.cy) then
+   gol:clr(state.cx,state.cy)
   else
-   gols[1]:set(cx,cy)
+   gol:set(state.cx,state.cy)
   end
  end
  if btnp(🅾️) then
-  play=not play
+  state.play=not state.play
  end
- if play then
-  t+=1
-  if t%1==0 then
-   for i=1,4 do
-    gols[i]:step()
+ if state.play then
+  state.t+=1
+  if state.t%1==0 then
+   for gol in all(state.gols) do
+    gol:step()
    end
   end
  end
