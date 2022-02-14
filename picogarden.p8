@@ -4,6 +4,7 @@ __lua__
 params={}
 params.max_decay_find_attempts=32
 params.num_decay_death_ticks=100
+params.history_len=80
 
 bit0=0x0.0001
 
@@ -144,7 +145,6 @@ function ca:new(address,specs)
  o.bitgrid=bitgrid:new(
   address,specs.bg_w,specs.bg_h
  )
- o.steps=0
 
  return o
 end
@@ -265,8 +265,6 @@ function ca:step()
  local r0=ca_rows
  local r1=r0+specs.bpr
  local r2=r1+specs.bpr
-
- self.steps+=1
 
  self:_restore_right_bits()
  self:_set_border()
@@ -546,6 +544,7 @@ function _init()
  state={}
  state.gols={}
  state.decays={}
+ state.counts={}
  for i=1,4 do
   local gol=ca:new(
    0x4400+i*16*64,specs
@@ -556,12 +555,14 @@ function _init()
   add(
    state.decays,decay:new(gol)
   )
+  add(state.counts,{})
  end
  state.cx=0
  state.cy=0
  state.play=false
  state.t=0
- state.wait=0
+ state.steps=0
+ state.wait=5
  state.viewmask=0xf
 
  expand=init_expand()
@@ -610,24 +611,28 @@ end
 function _draw()
  cls()
 
- color(6)
- for i=0,10 do
-  --line(24+i*8,32,24+i*8,95)
- end
-
- for i,gol in pairs(state.gols) do
-  if
-   state.viewmask&(0x1<<(i-1))!=0
-  then
-   draw_gol(i,gol)
+ local mask=state.viewmask
+ if mask!=0 then
+  for i,g in pairs(state.gols) do
+   if mask&(0x1<<(i-1))!=0 then
+    draw_gol(i,g)
+   end
   end
-	 local ncells=state.bitcounter
-   :count_ca_bits(gol)
-  print(
-   "steps="..gol.steps
-   ..", cells="..ncells,
-   0,60+32+i*6,1<<(i-1)
-  )
+ else
+  for i,h in pairs(state.counts) do
+   local c=0x1<<(i-1)
+   local tmax=state.steps
+   local tmin=max(
+    tmax-params.history_len,0
+   )
+   for t=tmin,tmax-1 do
+    local x=24+t-tmin
+    local y=96-min(63,h[
+     t%params.history_len
+    ]\10)
+    pset(x,y,pget(x,y)|c)
+   end
+  end
  end
 
  if not state.play then
@@ -691,13 +696,19 @@ function _update()
  if state.play then
   state.t+=1
   if state.t%(0x1<<state.wait)==0 then
-   for g in all(state.gols) do
+   local idx=
+    state.steps%params.history_len
+   for i,g in pairs(state.gols) do
     g:step()
+    state.counts[i][idx]=
+	    state.bitcounter
+      :count_ca_bits(g)
    end
 
    for d in all(state.decays) do
     d:update()
    end
+   state.steps+=1
   end
  end
 end
