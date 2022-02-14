@@ -495,6 +495,34 @@ function decay:update()
   end
  end
 end
+
+function revive(cas)
+ local specs=cas[1].specs
+
+ local a={}
+ for ca in all(cas) do
+  add(a,ca.bitgrid.a0+specs.bpr)
+ end
+
+ local v={}
+ for row=1,specs.h do
+  for col=0,specs.bpr-1,4 do
+   for i=1,#cas do
+    v[i]=$a[i]
+   end
+   for i=1,#cas do
+    local r=v[i]&v[i%#cas+1]
+    local idx=(i+1)%#cas+1
+    poke4(a[idx],$a[idx]|r)
+    idx=(i+#cas-2)%#cas+1
+    poke4(a[idx],$a[idx]|r)
+   end
+   for i=1,#cas do
+    a[i]+=4
+   end
+  end
+ end
+end
 -->8
 function init_expand()
  local expand={}
@@ -644,12 +672,16 @@ function _update()
    state.cx=(state.cx+1)%80
   end
  end
- local gol=state.gols[1]
  if btnp(❎) then
-  if gol:get(state.cx,state.cy) then
-   gol:clr(state.cx,state.cy)
+  if true or state.play then
+   revive(state.gols)
   else
-   gol:set(state.cx,state.cy)
+   local gol=state.gols[1]
+   if gol:get(state.cx,state.cy) then
+    gol:clr(state.cx,state.cy)
+   else
+    gol:set(state.cx,state.cy)
+   end
   end
  end
  if btnp(🅾️) then
