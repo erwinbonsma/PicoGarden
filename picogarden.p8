@@ -1,6 +1,10 @@
 pico-8 cartridge // http://www.pico-8.com
 version 32
 __lua__
+params={}
+params.max_decay_find_attempts=32
+params.num_decay_death_ticks=100
+
 bit0=0x0.0001
 
 function count_bits(val)
@@ -443,13 +447,13 @@ end
 
 function decay:find_target()
  local specs=self.ca.specs
- for i=1,32 do
+ for i=1,params.max_decay_find_attempts do
   local x=flr(rnd(specs.w))
   local y=flr(rnd(specs.h))
 
   if self.ca:get(x,y) then
-   printh("found target on attempt "
-    ..i)
+   --printh("found target on attempt "
+   -- ..i)
    self.x=x
    self.y=y
    self.count=1
@@ -481,13 +485,12 @@ function decay:update()
    self.ca:get(self.x,self.y)
   then
    self.count+=1
-   if self.count==100 then
-    printh("destroying target")
+   if self.count==params.num_decay_death_ticks then
     self:destroy_target()
    end
   else
-   printh("target changed after "
-    ..self.count.." steps")
+   --printh("target changed after "
+   -- ..self.count.." steps")
    self.count=-1
   end
  end
@@ -592,12 +595,9 @@ function _draw()
   end
 	 local ncells=state.bitcounter
    :count_ca_bits(gol)
-  local ncells2=state.bitcounter
-   :count_bits(gol.bitgrid)
   print(
    "steps="..gol.steps
-   ..", cells="..ncells
-   .."/"..ncells2,
+   ..", cells="..ncells,
    0,60+32+i*6,1<<(i-1)
   )
  end
