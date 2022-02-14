@@ -442,11 +442,35 @@ function decay:new(ca)
 end
 
 function decay:find_target()
- local y=flr(rnd(self.ca.h))
- local x=flr(rnd(self.ca.w))
+ local specs=self.ca.specs
+ for i=1,32 do
+  local x=flr(rnd(specs.w))
+  local y=flr(rnd(specs.h))
 
- -- find non-empty unit
- -- todo
+  if self.ca:get(x,y) then
+   printh("found target on attempt "
+    ..i)
+   self.x=x
+   self.y=y
+   self.count=1
+   return
+  end
+ end
+ --printh("did not find target")
+end
+
+function decay:destroy_target()
+ sfx(0)
+ local specs=self.ca.specs
+ for x=self.x-1,self.x+1 do
+  for y=self.y-1,self.y+1 do
+   self.ca:clr(
+    (x+specs.w)%specs.w,
+    (y+specs.h)%specs.h
+   )
+  end
+ end
+ self.count=-1
 end
 
 function decay:update()
@@ -458,9 +482,12 @@ function decay:update()
   then
    self.count+=1
    if self.count==100 then
+    printh("destroying target")
     self:destroy_target()
    end
   else
+   printh("target changed after "
+    ..self.count.." steps")
    self.count=-1
   end
  end
@@ -487,6 +514,7 @@ function _init()
 
  state={}
  state.gols={}
+ state.decays={}
  for i=1,4 do
   local gol=ca:new(
    0x4400+i*16*64,specs
@@ -494,6 +522,9 @@ function _init()
   --gol:reset()
   gol:randomize()
   add(state.gols,gol)
+  add(
+   state.decays,decay:new(gol)
+  )
  end
  state.cx=0
  state.cy=0
@@ -628,8 +659,12 @@ function _update()
  if state.play then
   state.t+=1
   if state.t%(0x1<<state.wait)==0 then
-   for gol in all(state.gols) do
-    gol:step()
+   for g in all(state.gols) do
+    g:step()
+   end
+
+   for d in all(state.decays) do
+    d:update()
    end
   end
  end
@@ -641,3 +676,5 @@ __gfx__
 00077000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00077000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00700700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+__sfx__
+010100000000018050110500605000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
