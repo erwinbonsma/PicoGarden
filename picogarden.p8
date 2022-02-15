@@ -563,7 +563,7 @@ function _init()
  state.t=0
  state.steps=0
  state.wait=5
- state.viewmask=0xf
+ state.viewmode=5
 
  expand=init_expand()
 
@@ -611,10 +611,12 @@ end
 function _draw()
  cls()
 
- local mask=state.viewmask
- if mask!=0 then
+ if state.viewmode!=0 then
   for i,g in pairs(state.gols) do
-   if mask&(0x1<<(i-1))!=0 then
+   if
+    i==state.viewmode or
+    state.viewmode==5
+   then
     draw_gol(i,g)
    end
   end
@@ -627,9 +629,9 @@ function _draw()
    )
    for t=tmin,tmax-1 do
     local x=24+t-tmin
-    local y=96-min(63,h[
+    local y=96-(h[
      t%params.history_len
-    ]\10)
+    ]\10)%64
     pset(x,y,pget(x,y)|c)
    end
   end
@@ -663,16 +665,16 @@ function _update()
  end
  if btnp(⬅️) then
   if state.play then
-   state.viewmask=
-    (state.viewmask+15)%16
+   state.viewmode=
+    (state.viewmode+5)%6
   else
    state.cx=(state.cx+79)%80
   end
  end
  if btnp(➡️) then
   if state.play then
-   state.viewmask=
-    (state.viewmask+1)%16
+   state.viewmode=
+    (state.viewmode+1)%6
   else
    state.cx=(state.cx+1)%80
   end
