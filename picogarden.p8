@@ -35,6 +35,10 @@ function u32_tostr(v)
  return s
 end
 
+function cprint(str,y)
+ print(str,64-#str*2,y)
+end
+
 -- 3x17=51 bytes
 mem_cagrid_work=0x8000
 
@@ -615,6 +619,11 @@ function _init()
  expand=init_expand()
 
  state.bitcounter=bitcounter:new()
+
+ _draw=main_draw
+ _update=main_update
+
+ gameover()
 end
 
 function draw_gol(i,gol)
@@ -655,7 +664,7 @@ function draw_gol(i,gol)
  end
 end
 
-function _draw()
+function main_draw()
  cls()
 
  if state.viewmode!=0 then
@@ -699,7 +708,7 @@ function _draw()
  end
 end
 
-function _update()
+function main_update()
  if btnp(⬆️) then
   if state.play then
    if (state.wait>0) state.wait-=1
@@ -751,6 +760,7 @@ function _update()
   if state.t%(0x1<<state.wait)==0 then
    local idx=
     (state.steps<<16)%params.history_len
+   local total_cells=0
    for i,g in pairs(state.gols) do
     g:step()
     local ncells=
@@ -759,14 +769,39 @@ function _update()
     state.counts[i][idx]=ncells
     state.liveliness_checks[i]
      :update(ncells)
+    total_cells+=ncells
    end
 
    for d in all(state.decays) do
     d:update()
    end
    state.steps+=1>>16
+
+   if total_cells==0 then
+    gameover()
+   end
   end
  end
+end
+
+function gameover()
+ --todo: sfx
+ _draw=gameover_draw
+ _update=gameover_update
+end
+
+function gameover_draw()
+ cls()
+
+ color(7)
+ cprint("game over!",54)
+ cprint(
+  "score: "..
+  u32_tostr(state.steps),66
+ )
+end
+
+function gameover_update()
 end
 __gfx__
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
