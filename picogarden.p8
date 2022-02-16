@@ -624,8 +624,6 @@ function _init()
 
  _draw=main_draw
  _update=main_update
-
- gameover()
 end
 
 function draw_gol(i,gol)
@@ -666,6 +664,33 @@ function draw_gol(i,gol)
  end
 end
 
+function draw_plot()
+ for i,h in pairs(state.counts) do
+  local c=0x1<<(i-1)
+  local tmax=state.steps<<16
+  local tmin=max(
+   tmax-params.history_len,0
+  )
+  for t=tmin,tmax-1 do
+   local x=24+t-tmin
+   local v=h[
+    t%params.history_len
+   ]
+   -- use a log-like scale for
+   -- the y-axis based on:
+   -- y=x*(x+1)/(2*1.6)
+   -- the factor 1.6 scales the
+   -- axis. fv is obtained from
+   -- quadratic formula
+   local fv=sqrt(0.25+2*v*1.6)
+   local y=96-max(0,min(63,fv-2))
+   pset(x,y,pget(x,y)|c)
+  end
+ end
+ local s=u32_tostr(state.steps)
+ print(s,104-2*#s,32,7)
+end
+
 function main_draw()
  cls()
 
@@ -679,24 +704,7 @@ function main_draw()
    end
   end
  else
-  for i,h in pairs(state.counts) do
-   local c=0x1<<(i-1)
-   local tmax=state.steps<<16
-   local tmin=max(
-    tmax-params.history_len,0
-   )
-   for t=tmin,tmax-1 do
-    local x=24+t-tmin
-    local y=96-(h[
-     t%params.history_len
-    ]\10)%64
-    pset(x,y,pget(x,y)|c)
-   end
-  end
-  print(
-   u32_tostr(state.steps),
-   24,32,7
-  )
+  draw_plot()
  end
 
  if not state.play then
