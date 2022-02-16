@@ -583,6 +583,8 @@ function init_expand()
 end
 
 function _init()
+ srand(18921)
+
  local specs=ca_specs:new(
   80,64,true
  )
