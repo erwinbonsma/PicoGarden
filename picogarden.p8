@@ -23,6 +23,18 @@ function count_bits(val)
  return nbits
 end
 
+-- code by felice. see
+-- https://www.lexaloffle.com/bbs/?pid=22809
+function u32_tostr(v)
+ local s=""
+ repeat
+  local t=v>>>1
+  s=(t%0x0.0005<<17)+(v<<16&1)..s
+  v=t/5
+ until v==0
+ return s
+end
+
 -- 3x17=51 bytes
 mem_cagrid_work=0x8000
 
@@ -658,7 +670,7 @@ function _draw()
  else
   for i,h in pairs(state.counts) do
    local c=0x1<<(i-1)
-   local tmax=state.steps
+   local tmax=state.steps<<16
    local tmin=max(
     tmax-params.history_len,0
    )
@@ -670,6 +682,10 @@ function _draw()
     pset(x,y,pget(x,y)|c)
    end
   end
+  print(
+   u32_tostr(state.steps),
+   24,32,7
+  )
  end
 
  if not state.play then
@@ -734,7 +750,7 @@ function _update()
   state.t+=1
   if state.t%(0x1<<state.wait)==0 then
    local idx=
-    state.steps%params.history_len
+    (state.steps<<16)%params.history_len
    for i,g in pairs(state.gols) do
     g:step()
     local ncells=
@@ -748,7 +764,7 @@ function _update()
    for d in all(state.decays) do
     d:update()
    end
-   state.steps+=1
+   state.steps+=1>>16
   end
  end
 end
