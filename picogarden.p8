@@ -623,12 +623,11 @@ function init_expand()
  return expand
 end
 
-function _init()
+function reset_garden()
  local specs=ca_specs:new(
   80,64,true
  )
 
- state={}
  state.gols={}
  state.decays={}
  state.counts={}
@@ -637,7 +636,6 @@ function _init()
   local gol=ca:new(
    0x4400+i*16*64,specs
   )
-  --gol:reset()
   gol:randomize()
   add(state.gols,gol)
   add(state.decays,decay:new(i))
@@ -647,21 +645,33 @@ function _init()
    liveliness_check:new(i)
   )
  end
- state.cx=0
- state.cy=0
- state.play=not devmode
+
  state.t=0
  state.steps=0
  state.wait=5
  state.viewmode=5
  state.revive_wait=min_revive_delay
+end
+
+function start_game()
+ assert(state.steps==0)
+
+ _draw=main_draw
+ _update=main_update
+end
+
+function _init()
+ state={}
+ state.cx=0
+ state.cy=0
+ state.play=not devmode
 
  expand=init_expand()
 
  state.bitcounter=bitcounter:new()
+ reset_garden()
 
- _draw=main_draw
- _update=main_update
+ start_game()
 end
 
 function draw_gol(i,gol)
@@ -719,20 +729,26 @@ function draw_plot()
   end
  end
  local s=u32_tostr(state.steps)
- print(s,104-2*#s,32,7)
+ print(s,104-4*#s,32,7)
+end
+
+function draw_garden()
+ for i,g in pairs(state.gols) do
+  draw_gol(i,g)
+ end
 end
 
 function main_draw()
  cls()
 
  if state.viewmode!=0 then
-  for i,g in pairs(state.gols) do
-   if
-    i==state.viewmode or
-    state.viewmode==5
-   then
-    draw_gol(i,g)
-   end
+  if state.viewmode==5 then
+   draw_garden()
+  else
+   draw_gol(
+    state.viewmode,
+    state.gols[state.viewmode]
+   )
   end
  else
   draw_plot()
@@ -843,6 +859,8 @@ function main_update()
 end
 
 function gameover()
+ reset_garden()
+
  --todo: sfx
  _draw=gameover_draw
  _update=gameover_update
@@ -850,6 +868,7 @@ end
 
 function gameover_draw()
  cls()
+ --draw_garden()
 
  color(7)
  cprint("game over!",54)
@@ -860,6 +879,9 @@ function gameover_draw()
 end
 
 function gameover_update()
+ if btnp(❎) or btnp(🅾️) then
+  start_game()
+ end
 end
 __gfx__
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
