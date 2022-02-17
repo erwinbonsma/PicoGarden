@@ -750,10 +750,13 @@ function main_update()
   end
  end
  if btnp(❎) then
-  if true or state.play then
+  if state.play then
    revive(state.gols)
   else
-   local gol=state.gols[1]
+   -- tmp: dev/debug option
+   local gol=state.gols[
+    max(1,min(4,state.viewmode))
+   ]
    if gol:get(state.cx,state.cy) then
     gol:clr(state.cx,state.cy)
    else
