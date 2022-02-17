@@ -634,7 +634,7 @@ function draw_gol(i,gol)
   local rb=80
   local a
    =bg.a0+(y+1)*gol.specs.bpr
-  local rbpu=bpu_ca
+  local rbpu=bpu_ca-1
   while rb>0 do
    local v
    local nb=min(rbpu,rb)
@@ -709,7 +709,7 @@ function main_draw()
 
  if not state.play then
   color(10)
-  local x=state.cx+25
+  local x=state.cx+24
   local y=state.cy+32
   pset(x-1,y)
   pset(x+1,y)
