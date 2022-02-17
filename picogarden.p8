@@ -645,16 +645,14 @@ function reset_garden()
    liveliness_check:new(i)
   )
  end
+end
 
+function start_game()
  state.t=0
  state.steps=0
  state.wait=5
  state.viewmode=5
  state.revive_wait=min_revive_delay
-end
-
-function start_game()
- assert(state.steps==0)
 
  _draw=main_draw
  _update=main_update
