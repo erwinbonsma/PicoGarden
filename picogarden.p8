@@ -450,64 +450,103 @@ end
 
 decay={}
 
-function decay:new(ca)
+function decay:new(target_idx)
  local o=setmetatable({},self)
  self.__index=self
 
- o.ca=ca
+ o.target_idx=target_idx
  o.count=-1
 
  return o
 end
 
-function decay:find_target()
- local specs=self.ca.specs
+function decay:find_target(ca)
+ local specs=ca.specs
  for i=1,params.max_decay_find_attempts do
   local x=flr(rnd(specs.w))
   local y=flr(rnd(specs.h))
 
-  if self.ca:get(x,y) then
+  if ca:get(x,y) then
    --printh("found target on attempt "
    -- ..i)
    self.x=x
    self.y=y
    self.count=1
+   self.mask=0xf
    return
   end
  end
  --printh("did not find target")
 end
 
-function decay:destroy_target()
- sfx(0)
- local specs=self.ca.specs
+function decay:clear_area(ca)
+ local specs=ca.specs
  for x=self.x-1,self.x+1 do
   for y=self.y-1,self.y+1 do
-   self.ca:clr(
+   ca:clr(
     (x+specs.w)%specs.w,
     (y+specs.h)%specs.h
    )
   end
  end
- self.count=-1
 end
 
-function decay:update()
- if self.count==-1 then
-  self:find_target()
- else
-  if
-   self.ca:get(self.x,self.y)
-  then
-   self.count+=1
-   if self.count==params.num_decay_death_ticks then
-    self:destroy_target()
-   end
-  else
-   --printh("target changed after "
-   -- ..self.count.." steps")
-   self.count=-1
+function decay:destroy(cas)
+ sfx(0)
+ self.count=-1
+
+ local ti=self.target_idx
+ for i=1,4 do
+  if (
+   -- always clear target
+   i==ti
+   or (
+    -- also clear static cells
+    -- in other layers
+    self.mask&(1<<(i-1))!=0
+    and (
+     -- as long as layer is
+     -- is a direct neighbour
+     i%2!=ti%2
+     -- or connected via a
+     -- static layer
+     or count_bits(self.mask)>2
+    )
+   )
+  ) then
+   self:clear_area(cas[i])
+   printh("clearing layer "..i)
   end
+ end
+end
+
+
+function decay:update(cas)
+ if self.count==-1 then
+  self:find_target(
+   cas[self.target_idx]
+  )
+  return
+ end
+
+ for i,ca in pairs(cas) do
+  if not ca:get(self.x,self.y)
+  then
+   self.mask&=~(1<<(i-1))
+  end
+ end
+
+ if self.mask&(
+  1<<(self.target_idx-1)
+ )!=0 then
+  self.count+=1
+  if self.count==params.num_decay_death_ticks then
+   self:destroy(cas)
+  end
+ else
+  --printh("target changed after "
+  -- ..self.count.." steps")
+  self.count=-1
  end
 end
 
@@ -601,9 +640,7 @@ function _init()
   --gol:reset()
   gol:randomize()
   add(state.gols,gol)
-  add(
-   state.decays,decay:new(gol)
-  )
+  add(state.decays,decay:new(i))
   add(state.counts,{})
   add(
    state.liveliness_checks,
@@ -786,7 +823,7 @@ function main_update()
    end
 
    for d in all(state.decays) do
-    d:update()
+    d:update(state.gols)
    end
    state.steps+=1>>16
 
