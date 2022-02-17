@@ -1,11 +1,12 @@
 pico-8 cartridge // http://www.pico-8.com
 version 32
 __lua__
-params={}
-params.max_decay_find_attempts=32
-params.num_decay_death_ticks=100
-params.history_len=80
-params.liveliness_limit=50
+max_decay_find_attempts=32
+num_decay_death_ticks=100
+history_len=80
+liveliness_limit=50
+max_wait=6
+devmode=false
 
 bit0=0x0.0001
 
@@ -462,7 +463,7 @@ end
 
 function decay:find_target(ca)
  local specs=ca.specs
- for i=1,params.max_decay_find_attempts do
+ for i=1,max_decay_find_attempts do
   local x=flr(rnd(specs.w))
   local y=flr(rnd(specs.h))
 
@@ -540,7 +541,7 @@ function decay:update(cas)
   1<<(self.target_idx-1)
  )!=0 then
   self.count+=1
-  if self.count==params.num_decay_death_ticks then
+  if self.count==num_decay_death_ticks then
    self:destroy(cas)
   end
  else
@@ -572,8 +573,8 @@ function liveliness_check
   return
  end
 
- if num_cells>(self.min
-  +params.liveliness_limit) then
+ if num_cells>
+  self.min+liveliness_limit then
   sfx(self.idx)
   self.min=num_cells
  end
@@ -622,8 +623,6 @@ function init_expand()
 end
 
 function _init()
- srand(18921)
-
  local specs=ca_specs:new(
   80,64,true
  )
@@ -649,7 +648,7 @@ function _init()
  end
  state.cx=0
  state.cy=0
- state.play=false
+ state.play=not devmode
  state.t=0
  state.steps=0
  state.wait=5
@@ -693,11 +692,6 @@ function draw_gol(i,gol)
    )
    d+=4
   end
-  --for x=0,79 do
-  -- if gols[i]:get(x,y) then
-  --  pset(x+24,y+64,7)
-  -- end
-  --end
  end
 end
 
@@ -706,13 +700,11 @@ function draw_plot()
   local c=0x1<<(i-1)
   local tmax=state.steps<<16
   local tmin=max(
-   tmax-params.history_len,0
+   tmax-history_len,0
   )
   for t=tmin,tmax-1 do
    local x=24+t-tmin
-   local v=h[
-    t%params.history_len
-   ]
+   local v=h[t%history_len]
    -- use a log-like scale for
    -- the y-axis based on:
    -- y=x*(x+1)/(2*1.6)
@@ -758,14 +750,18 @@ end
 function main_update()
  if btnp(⬆️) then
   if state.play then
-   if (state.wait>0) state.wait-=1
+   if state.wait>0 then
+    state.wait-=1
+   end
   else
    state.cy=(state.cy+63)%64
   end
  end
  if btnp(⬇️) then
   if state.play then
-   state.wait+=1
+   if state.wait<max_wait then
+    state.wait+=1
+   end
   else
    state.cy=(state.cy+1)%64
   end
@@ -790,7 +786,7 @@ function main_update()
   if state.play then
    revive(state.gols)
   else
-   -- tmp: dev/debug option
+   -- dev mode manipulation
    local gol=state.gols[
     max(1,min(4,state.viewmode))
    ]
@@ -801,15 +797,15 @@ function main_update()
    end
   end
  end
- if btnp(🅾️) then
+ if btnp(🅾️) and devmode then
   state.play=not state.play
  end
 
  if state.play then
   state.t+=1
-  if state.t%(0x1<<state.wait)==0 then
+  if state.t%(1<<state.wait)==0 then
    local idx=
-    (state.steps<<16)%params.history_len
+    (state.steps<<16)%history_len
    local total_cells=0
    for i,g in pairs(state.gols) do
     g:step()
