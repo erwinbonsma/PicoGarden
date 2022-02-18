@@ -663,6 +663,8 @@ function _init()
  state.cx=0
  state.cy=0
  state.play=not devmode
+ state.hiscore=0
+ state.loscore=0x7fff.ffff
 
  expand=init_expand()
 
@@ -880,6 +882,13 @@ end
 function gameover()
  reset_garden()
 
+ state.loscore=min(
+  state.loscore,state.steps
+ )
+ state.hiscore=max(
+  state.hiscore,state.steps
+ )
+
  --todo: sfx
  _draw=gameover_draw
  _update=gameover_update
@@ -893,10 +902,29 @@ function gameover_draw()
  rectfill(24,32,103,95,0)
 
  color(7)
- cprint("game over!",54)
- cprint(
+ cprint("game over!",40)
+ print(
   "score: "..
-  u32_tostr(state.steps),66
+  u32_tostr(state.steps),
+  44,66
+ )
+ color(
+  state.loscore==state.steps
+  and 8 or 6
+ )
+ print(
+  "lo-score: "..
+  u32_tostr(state.loscore),
+  32,60
+ )
+ color(
+  state.hiscore==state.steps
+  and 11 or 6
+ )
+ print(
+  "hi-score: "..
+  u32_tostr(state.hiscore),
+  32,72
  )
 end
 
