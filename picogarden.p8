@@ -705,6 +705,26 @@ function draw_gol(i,gol)
  end
 end
 
+function draw_border()
+ local d0=0x6000
+ for y=32,95 do
+  memcpy(
+   d0+64*y,d0+64*y+40,12
+  )
+  memcpy(
+   d0+64*y+52,d0+64*y+12,12
+  )
+ end
+ for y=0,31 do
+  memcpy(
+   d0+64*y,d0+64*(y+64),64
+  )
+  memcpy(
+   d0+64*(y+96),d0+64*(y+32),64
+  )
+ end
+end
+
 function draw_plot()
  for i,h in pairs(state.counts) do
   local c=0x1<<(i-1)
@@ -748,6 +768,7 @@ function main_draw()
     state.gols[state.viewmode]
    )
   end
+  draw_border()
  else
   draw_plot()
  end
@@ -866,7 +887,10 @@ end
 
 function gameover_draw()
  cls()
- --draw_garden()
+ draw_garden()
+ draw_border()
+
+ rectfill(24,32,103,95,0)
 
  color(7)
  cprint("game over!",54)
