@@ -107,7 +107,9 @@ function bitgrid:randomize()
  local a=self.a0
  local n=self.h*self.upr*4
  for i=1,n do
-  poke(a,flr(rnd(256)))
+  poke(a,
+   flr(rnd(256))&flr(rnd(256))
+  )
   a+=1
  end
 end
