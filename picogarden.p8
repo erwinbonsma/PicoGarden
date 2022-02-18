@@ -647,6 +647,7 @@ function reset_garden()
    liveliness_check:new(i)
   )
  end
+ state.ini_steps=5*15
 end
 
 function start_game()
@@ -956,10 +957,19 @@ function gameover_draw()
 end
 
 function gameover_update()
+ if state.ini_steps>0 then
+  state.ini_steps-=1
+  if state.ini_steps%15==0 then
+   for ca in all(state.gols) do
+    ca:step()
+   end
+  end
+ end
+
  state.autoplay-=1
  if
   state.autoplay==0 or
-  state.autoplay<870 and (
+  state.ini_steps==0 and (
    btnp(❎) or btnp(🅾️)
   )
  then
