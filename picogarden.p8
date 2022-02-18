@@ -654,6 +654,7 @@ function start_game()
  state.steps=0
  state.viewmode=5
  state.revive_wait=min_revive_delay
+ state.btnx_hold=0
 
  _draw=main_draw
  _update=main_update
@@ -786,6 +787,14 @@ function main_draw()
   pset(x,y-1)
   pset(x,y+1)
  end
+
+ if state.btnx_hold>0 then
+  rectfill(
+   34,89,95,96,0
+  )
+  color(7)
+  cprint("hold ❎ to exit",90)
+ end
 end
 
 function main_update()
@@ -823,7 +832,7 @@ function main_update()
    state.cx=(state.cx+1)%80
   end
  end
- if btnp(❎) then
+ if btnp(🅾️) then
   if state.play then
    if state.revive_wait==0 then
     sfx(5)
@@ -844,8 +853,16 @@ function main_update()
    end
   end
  end
- if btnp(🅾️) and devmode then
+ if btnp(❎) and devmode then
   state.play=not state.play
+ end
+ if btn(❎) then
+  state.btnx_hold+=1
+  if state.btnx_hold>=30 then
+   gameover(true)
+  end
+ else
+  state.btnx_hold=0
  end
 
  if state.play then
@@ -881,12 +898,16 @@ function main_update()
  end
 end
 
-function gameover()
+function gameover(
+ ignore_loscore
+)
  reset_garden()
 
- state.loscore=min(
-  state.loscore,state.steps
- )
+ if not ignore_loscore then
+  state.loscore=min(
+   state.loscore,state.steps
+  )
+ end
  state.hiscore=max(
   state.hiscore,state.steps
  )
@@ -911,15 +932,19 @@ function gameover_draw()
   u32_tostr(state.steps),
   44,66
  )
- color(
-  state.loscore==state.steps
-  and 8 or 6
- )
- print(
-  "lo-score: "..
-  u32_tostr(state.loscore),
-  32,60
- )
+ if
+  state.loscore!=0x7fff.ffff
+ then
+  color(
+   state.loscore==state.steps
+   and 8 or 6
+  )
+  print(
+   "lo-score: "..
+   u32_tostr(state.loscore),
+   32,60
+  )
+ end
  color(
   state.hiscore==state.steps
   and 11 or 6
