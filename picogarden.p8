@@ -652,7 +652,6 @@ end
 function start_game()
  state.t=0
  state.steps=0
- state.wait=5
  state.viewmode=5
  state.revive_wait=min_revive_delay
 
@@ -665,6 +664,7 @@ function _init()
  state.cx=0
  state.cy=0
  state.play=not devmode
+ state.wait=5
  state.hiscore=0
  state.loscore=0x7fff.ffff
 
@@ -890,6 +890,7 @@ function gameover()
  state.hiscore=max(
   state.hiscore,state.steps
  )
+ state.autoplay=900
 
  --todo: sfx
  _draw=gameover_draw
@@ -931,7 +932,13 @@ function gameover_draw()
 end
 
 function gameover_update()
- if btnp(❎) or btnp(🅾️) then
+ state.autoplay-=1
+ if
+  state.autoplay==0 or
+  state.autoplay<870 and (
+   btnp(❎) or btnp(🅾️)
+  )
+ then
   start_game()
  end
 end
