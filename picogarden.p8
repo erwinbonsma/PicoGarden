@@ -519,7 +519,6 @@ function decay:destroy(cas)
    )
   ) then
    self:clear_area(cas[i])
-   printh("clearing layer "..i)
   end
  end
 end
@@ -860,6 +859,7 @@ function main_update()
   state.btnx_hold+=1
   if state.btnx_hold>=30 then
    gameover(true)
+   return
   end
  else
   state.btnx_hold=0
@@ -910,6 +910,12 @@ function gameover(
  end
  state.hiscore=max(
   state.hiscore,state.steps
+ )
+ printh(
+  "score="..state.steps..
+  "/"..u32_tostr(state.steps)..
+  ", hiscore="..state.hiscore..
+  "/"..u32_tostr(state.hiscore)
  )
  state.autoplay=900
 
