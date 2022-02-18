@@ -672,9 +672,8 @@ function _init()
  expand=init_expand()
 
  state.bitcounter=bitcounter:new()
- reset_garden()
 
- start_game()
+ show_title()
 end
 
 function draw_gol(i,gol)
@@ -967,6 +966,29 @@ function gameover_update()
   start_game()
  end
 end
+
+function show_title()
+ reset_garden()
+
+ state.autoplay=900
+ _draw=title_draw
+ _update=title_update
+end
+
+function title_draw()
+ cls()
+ draw_garden()
+ draw_border()
+
+ rectfill(24,32,103,95,0)
+
+ color(3)
+ cprint("pico garden",60)
+ cprint("by eriban",66)
+end
+
+title_update=gameover_update
+
 __gfx__
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
