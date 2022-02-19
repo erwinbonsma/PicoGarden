@@ -811,8 +811,6 @@ function draw_plot()
    pset(x,y,pget(x,y)|c)
   end
  end
- local s=u32_tostr(state.steps)
- print(s,104-4*#s,32,7)
 end
 
 function draw_garden()
@@ -824,17 +822,17 @@ end
 function main_draw()
  cls()
 
- if state.viewmode!=0 then
-  if state.viewmode==5 then
-   draw_garden()
-  else
-   draw_gol(
-    state.viewmode,
-    state.gols[state.viewmode]
-   )
-  end
-  draw_border()
+ if state.viewmode%5==0 then
+  draw_garden()
  else
+  draw_gol(
+   state.viewmode,
+   state.gols[state.viewmode]
+  )
+ end
+ draw_border()
+ if state.viewmode==0 then
+  rectfill(24,32,103,95,0)
   draw_plot()
  end
 
