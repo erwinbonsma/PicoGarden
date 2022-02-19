@@ -41,6 +41,10 @@ function cprint(str,y)
  print(str,64-#str*2,y)
 end
 
+function rprint(str,x,y)
+ print(str,x-#str*4,y)
+end
+
 -- 3x17=51 bytes
 mem_cagrid_work=0x8000
 
@@ -935,33 +939,38 @@ function gameover_draw()
 
  color(7)
  cprint("game over!",40)
- print(
-  "score: "..
+ print("score:",44,66)
+ rprint(
   u32_tostr(state.steps),
-  44,66
+  100,66
  )
  if
-  state.loscore!=0x7fff.ffff
+  state.loscore!=0x7fff.ffff and
+  state.loscore!=state.hiscore
  then
   color(
    state.loscore==state.steps
    and 8 or 6
   )
-  print(
-   "lo-score: "..
+  print("lo-score:",32,60)
+  rprint(
    u32_tostr(state.loscore),
-   32,60
+   100,60
   )
  end
- color(
-  state.hiscore==state.steps
-  and 11 or 6
- )
- print(
-  "hi-score: "..
-  u32_tostr(state.hiscore),
-  32,72
- )
+ if
+  state.hiscore!=state.loscore
+ then
+  color(
+   state.hiscore==state.steps
+   and 11 or 6
+  )
+  print("hi-score:",32,72)
+  rprint(
+   u32_tostr(state.hiscore),
+   100,72
+  )
+ end
 end
 
 function gameover_update()
