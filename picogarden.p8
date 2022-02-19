@@ -694,7 +694,9 @@ function draw_gol(i,gol)
     )&0x0.00ff
     rbpu-=8
    else
-    v=$a>>>(bpu_ca-rbpu)
+    v=(
+     $a&0x7fff.ffff
+    )>>>(bpu_ca-rbpu)
     a+=4
     v|=($a<<rbpu)&0x0.00ff
     rbpu=bpu_ca-(8-rbpu)
