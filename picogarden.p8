@@ -709,6 +709,7 @@ function start_game()
  state.viewmode=5
  state.revive_wait=min_revive_delay
  state.btnx_hold=0
+ state.fadein=32
 
  _draw=main_draw
  _update=main_update
@@ -839,6 +840,14 @@ function main_draw()
  if state.viewmode==0 then
   rectfill(24,32,103,95,0)
   draw_plot()
+ elseif state.fadein>0 then
+  rectfill(
+   56-state.fadein,
+   64-state.fadein,
+   72+state.fadein,
+   64+state.fadein,
+   0
+  )
  end
 
  if not state.play then
@@ -959,6 +968,10 @@ function main_update()
     state.revive_wait-=1
    end
   end
+ end
+
+ if state.fadein>0 then
+  state.fadein-=1
  end
 end
 
