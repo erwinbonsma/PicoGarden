@@ -715,13 +715,18 @@ function start_game()
 end
 
 function _init()
+ cartdata("eriban_picogarden")
+
  state={}
  state.cx=0
  state.cy=0
  state.play=not devmode
  state.wait=5
- state.hiscore=0
- state.loscore=0x7fff.ffff
+ state.hiscore=dget(1)
+ state.loscore=dget(2)
+ if state.loscore==0 then
+  state.loscore=0x7fff.ffff
+ end
 
  expand=init_expand()
 
@@ -966,10 +971,12 @@ function gameover(
   state.loscore=min(
    state.loscore,state.steps
   )
+  dset(2,state.loscore)
  end
  state.hiscore=max(
   state.hiscore,state.steps
  )
+ dset(1,state.hiscore)
  printh(
   "score="..state.steps..
   "/"..u32_tostr(state.steps)..
