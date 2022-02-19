@@ -1,5 +1,5 @@
 pico-8 cartridge // http://www.pico-8.com
-version 32
+version 35
 __lua__
 max_decay_find_attempts=32
 num_decay_death_ticks=100
@@ -8,6 +8,14 @@ liveliness_limit=50
 max_wait=6
 min_revive_delay=10
 devmode=false
+
+-- colors after display-pallete
+-- modification
+c_red=7
+c_dgreen=5
+c_lgreen=13
+c_lgray=10
+c_brown=4
 
 bit0=0x0.0001
 
@@ -677,6 +685,11 @@ function _init()
 
  state.bitcounter=bitcounter:new()
 
+ pal(
+  {1,2,14,4,3,9,8,5,
+   13,6,12,15,11,10,7,0},1
+ )
+
  show_title()
 end
 
@@ -937,7 +950,7 @@ function gameover_draw()
 
  rectfill(24,32,103,95,0)
 
- color(7)
+ color(c_lgray)
  cprint("game over!",40)
  print("score:",44,66)
  rprint(
@@ -950,7 +963,7 @@ function gameover_draw()
  then
   color(
    state.loscore==state.steps
-   and 8 or 6
+   and c_red or c_lgray
   )
   print("lo-score:",32,60)
   rprint(
@@ -963,7 +976,7 @@ function gameover_draw()
  then
   color(
    state.hiscore==state.steps
-   and 11 or 6
+   and c_dgreen or c_lgray
   )
   print("hi-score:",32,72)
   rprint(
