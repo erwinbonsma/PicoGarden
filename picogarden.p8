@@ -660,13 +660,16 @@ function revive(cas)
 
  local a={}
  for ca in all(cas) do
-  add(a,ca.bitgrid.a0+specs.bpr)
+  add(
+   a,ca.bitgrid.a0+specs.bpr-4
+  )
  end
 
  local v={}
  for row=1,specs.h do
   for col=0,specs.bpr-1,4 do
    for i=1,#cas do
+    a[i]+=4
     v[i]=$a[i]
    end
    for i=1,#cas do
@@ -675,9 +678,6 @@ function revive(cas)
     poke4(a[idx],$a[idx]|r)
     idx=(i+#cas-2)%#cas+1
     poke4(a[idx],$a[idx]|r)
-   end
-   for i=1,#cas do
-    a[i]+=4
    end
   end
  end
@@ -943,6 +943,9 @@ function main_update()
     revive(state.gols)
     state.revive_wait=min_revive_delay
     state.num_revives+=1>>16
+    -- skip ca updates to avoid
+    -- cpu spike
+    return
    else
     sfx(6)
    end
