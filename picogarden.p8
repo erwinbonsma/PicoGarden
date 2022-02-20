@@ -725,8 +725,10 @@ end
 function start_game()
  state.t=0
  state.steps=0
+ state.biomass_sum=0
  state.viewmode=5
  state.revive_wait=min_revive_delay
+ state.num_revives=0
  state.btnx_hold=0
  state.fadein=32
 
@@ -940,6 +942,7 @@ function main_update()
     sfx(5)
     revive(state.gols)
     state.revive_wait=min_revive_delay
+    state.num_revives+=1>>16
    else
     sfx(6)
    end
@@ -991,6 +994,7 @@ function main_update()
     d:update(state.gols)
    end
    state.steps+=1>>16
+   state.biomass_sum+=total_cells>>16
 
    if total_cells==0 then
     gameover()
@@ -1042,32 +1046,47 @@ function gameover_draw()
 
  rectfill(23,32,103,95,0)
 
- spr(8,51,34,4,2)
+ spr(8,52,38,4,2)
  local x=0
  for i=1,2 do
   state.flowers[i]
-  :draw(34+x*44,34)
+  :draw(35+x*44,38)
   x+=1
  end
 
  color(c_brown)
- print("score:",44,66)
+ rprint("num revives",70,59)
+ rprint(
+  u32_tostr(state.num_revives),
+  102,59
+ )
+ rprint("avg biomass",70,65)
+ rprint(
+  u32_tostr(
+   (state.biomass_sum/
+    state.steps
+   )>>16
+  ),
+  102,65
+ )
+ rprint("score",70,71)
  rprint(
   u32_tostr(state.steps),
-  100,66
+  102,71
  )
+
  if
   state.loscore!=0x7fff.ffff and
   state.loscore!=state.hiscore
  then
   color(
    state.loscore==state.steps
-   and c_red or c_brown
+   and c_red or c_dgray
   )
-  print("lo-score:",32,60)
+  rprint("lo-score",70,81)
   rprint(
    u32_tostr(state.loscore),
-   100,60
+   102,81
   )
  end
  if
@@ -1075,12 +1094,12 @@ function gameover_draw()
  then
   color(
    state.hiscore==state.steps
-   and c_dgreen or c_brown
+   and c_dgreen or c_dgray
   )
-  print("hi-score:",32,72)
+  rprint("hi-score",70,87)
   rprint(
    u32_tostr(state.hiscore),
-   100,72
+   102,87
   )
  end
 end
