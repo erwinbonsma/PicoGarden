@@ -702,6 +702,19 @@ function init_expand()
  return expand
 end
 
+function init_flash()
+ local flash={}
+
+ for i=0,255 do
+  local v=i
+  if (i&0xf0==0) v|=0x50
+  if (i&0x0f==0) v|=0x05
+  flash[i]=v
+ end
+
+ return flash
+end
+
 function reset_garden()
  local specs=ca_specs:new(
   80,64,true
@@ -766,6 +779,7 @@ function _init()
  end
 
  expand=init_expand()
+ flash=init_flash()
  state.flowers=init_flowers(14)
 
  state.bitcounter=bitcounter:new()
@@ -814,13 +828,11 @@ end
 
 function draw_border()
  local d0=0x6000
+ local a=d0+64*32
  for y=32,95 do
-  memcpy(
-   d0+64*y,d0+64*y+40,12
-  )
-  memcpy(
-   d0+64*y+52,d0+64*y+12,12
-  )
+  memcpy(a,a+40,12)
+  memcpy(a+52,a+12,12)
+  a+=64
  end
 
  if state.flash_bg>0 then
@@ -828,53 +840,32 @@ function draw_border()
    local a=d0+y*64
    local b=a+52
    for x=1,12 do
-    if @a&0xf==0 then
-     poke(a,@a|0x05)
-    end
-    if @a&0xf0==0 then
-     poke(a,@a|0x50)
-    end
+    poke(a,flash[@a])
+    poke(b,flash[@b])
     a+=1
-
-    if @b&0xf==0 then
-     poke(b,@b|0x05)
-    end
-    if @b&0xf0==0 then
-     poke(b,@b|0x50)
-    end
     b+=1
    end
   end
  end
 
+ local a=d0
+ local b=d0+64*96
+ local d=64*64
  for y=0,31 do
-  memcpy(
-   d0+64*y,d0+64*(y+64),64
-  )
-  memcpy(
-   d0+64*(y+96),d0+64*(y+32),64
-  )
+  memcpy(a,a+d,64)
+  memcpy(b,b-d,64)
+  a+=64
+  b+=64
  end
 
  if state.flash_bg>0 then
   for y=0,31 do
    local a=d0+y*64+12
    local b=a+96*64
-   for x=12,51 do
-    if @a&0xf==0 then
-     poke(a,@a|0x05)
-    end
-    if @a&0xf0==0 then
-     poke(a,@a|0x50)
-    end
+   for x=1,40 do
+    poke(a,flash[@a])
+    poke(b,flash[@b])
     a+=1
-
-    if @b&0xf==0 then
-     poke(b,@b|0x05)
-    end
-    if @b&0xf0==0 then
-     poke(b,@b|0x50)
-    end
     b+=1
    end
   end
@@ -997,6 +988,7 @@ function main_update()
     state.revive_wait=min_revive_delay
     state.flash_bg=8
     state.num_revives+=1>>16
+    return
    end
   else
    -- dev mode manipulation
