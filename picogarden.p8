@@ -13,6 +13,17 @@ max_wait=6
 min_revive_delay=10
 devmode=false
 
+-- colors so that:
+-- - intensity increases with
+--   amount of live cells
+-- - the blended colors follow
+--   from the core layer colors
+--   (as much as possible)
+display_palette={
+ 1,2,14,4,3,9,8,5,
+ 13,6,12,15,11,10,7,0
+}
+
 -- colors after display-pallete
 -- modification
 c_red=7
@@ -721,10 +732,11 @@ function start_game()
  state.steps=0
  state.biomass_sum=0
  state.viewmode=5
- state.revive_wait=min_revive_delay
+ state.revive_wait=0
  state.num_revives=0
  state.btnx_hold=0
  state.fadein=32
+ state.flash_bg=0
 
  _draw=main_draw
  _update=main_update
@@ -748,6 +760,7 @@ function _init()
  state.wait=5
  state.hiscore=dget(1)
  state.loscore=dget(2)
+ state.flash_bg=0
  if state.loscore==0 then
   state.loscore=0x7fff.ffff
  end
@@ -757,10 +770,7 @@ function _init()
 
  state.bitcounter=bitcounter:new()
 
- pal(
-  {1,2,14,4,3,9,8,5,
-   13,6,12,15,11,10,7,0},1
- )
+ pal(display_palette,1)
 
  state.flowers=init_flowers(14)
  show_title()
@@ -793,7 +803,7 @@ function draw_gol(i,gol)
     rbpu=bpu_ca-(8-rbpu)
    end
    rb-=8
-   v=v<<16
+   v<<=16
    poke4(
     d,$d|(expand[v]<<(i-1))
    )
@@ -812,6 +822,31 @@ function draw_border()
    d0+64*y+52,d0+64*y+12,12
   )
  end
+
+ if state.flash_bg>0 then
+  for y=32,95 do
+   local a=d0+y*64
+   local b=a+52
+   for x=1,12 do
+    if @a&0xf==0 then
+     poke(a,@a|0x05)
+    end
+    if @a&0xf0==0 then
+     poke(a,@a|0x50)
+    end
+    a+=1
+
+    if @b&0xf==0 then
+     poke(b,@b|0x05)
+    end
+    if @b&0xf0==0 then
+     poke(b,@b|0x50)
+    end
+    b+=1
+   end
+  end
+ end
+
  for y=0,31 do
   memcpy(
    d0+64*y,d0+64*(y+64),64
@@ -819,6 +854,30 @@ function draw_border()
   memcpy(
    d0+64*(y+96),d0+64*(y+32),64
   )
+ end
+
+ if state.flash_bg>0 then
+  for y=0,31 do
+   local a=d0+y*64+12
+   local b=a+96*64
+   for x=12,51 do
+    if @a&0xf==0 then
+     poke(a,@a|0x05)
+    end
+    if @a&0xf0==0 then
+     poke(a,@a|0x50)
+    end
+    a+=1
+
+    if @b&0xf==0 then
+     poke(b,@b|0x05)
+    end
+    if @b&0xf0==0 then
+     poke(b,@b|0x50)
+    end
+    b+=1
+   end
+  end
  end
 end
 
@@ -933,12 +992,11 @@ function main_update()
  if btnp(🅾️) then
   if state.play then
    if state.revive_wait==0 then
-    sfx(5)
+    --sfx(5)
     revive(state.gols)
     state.revive_wait=min_revive_delay
+    state.flash_bg=8
     state.num_revives+=1>>16
-   else
-    sfx(6)
    end
   else
    -- dev mode manipulation
@@ -1002,6 +1060,9 @@ function main_update()
 
  if state.fadein>0 then
   state.fadein-=1
+ end
+ if state.flash_bg>0 then
+  state.flash_bg-=1
  end
 end
 
