@@ -894,10 +894,10 @@ function main_draw()
 
  if state.btnx_hold>0 then
   rectfill(
-   34,89,95,96,0
+   34,61,95,67,0
   )
-  color(7)
-  cprint("hold ❎ to exit",90)
+  color(c_brown)
+  cprint("hold ❎ to exit",62)
  end
 end
 
