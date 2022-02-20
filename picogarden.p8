@@ -59,18 +59,22 @@ function rprint(str,x,y)
  print(str,x-#str*4,y)
 end
 
-function pick_unique(n,m)
- local s={} -- selectable
- local p={} -- picked
+-- returns list of numbers
+-- 0..n-1 in random order
+function shuffled(n)
+ local l={}
+ -- populate list
  for i=0,n-1 do
-  add(s,i)
+  add(l,i)
  end
- for i=1,m do
-  local idx=flr(rnd(#s))+1
-  add(p,s[idx])
-  deli(s,idx)
+ -- shuffle
+ for i=1,n do
+  local idx=i+flr(rnd(n-i+1))
+  local tmp=l[i]
+  l[i]=l[idx]
+  l[idx]=tmp
  end
- return p
+ return l
 end
 
 flower={}
@@ -79,23 +83,32 @@ function flower:new()
  local o=setmetatable({},self)
  self.__index=self
 
- o.colors=pick_unique(4,3)
- o.sprites=pick_unique(11,3)
- for i=1,3 do
-  local c=flr(rnd(4))
-  local s=flr(rnd(11))
-  add(o.colors,c)
-  add(o.sprites,si)
- end
+ o.colors=shuffled(4)
+ o.sprites=shuffled(11)
+ o.frame=0
+ o.grow_count=flr(rnd(90))
 
  return o
 end
 
+function flower:update()
+ if rnd(256)<128 then
+  self.grow_count+=1
+  if self.grow_count%90==0 then
+   self.frame+=1
+  end
+ end
+end
+
 function flower:draw(x,y)
- for i=1,3 do
-  local s=self.sprites[i]
+ for i=0,2 do
+  local s=self.sprites[
+   (self.frame+i)%11+1
+  ]
   local si=64+(s%8)*2+(s\8)*32
-  pal(7,1<<self.colors[i],0)
+  pal(7,1<<self.colors[
+   (self.frame+i)%4+1
+  ],0)
   spr(si,x,y,2,2)
  end
  pal(0)
@@ -721,13 +734,12 @@ function start_game()
  _update=main_update
 end
 
-function generate_flowers(n)
- state.flowers={}
- for i=1,n do
-  add(
-   state.flowers,flower:new()
-  )
+function init_flowers(n)
+ local flowers={}
+ for i=1,14 do
+  add(flowers,flower:new())
  end
+ return flowers
 end
 
 function _init()
@@ -745,6 +757,7 @@ function _init()
  end
 
  expand=init_expand()
+ state.flowers=init_flowers(14)
 
  state.bitcounter=bitcounter:new()
 
@@ -753,6 +766,7 @@ function _init()
    13,6,12,15,11,10,7,0},1
  )
 
+ state.flowers=init_flowers(14)
  show_title()
  --show_label()
 end
@@ -997,7 +1011,6 @@ function gameover(
  ignore_loscore
 )
  reset_garden()
- generate_flowers(2)
 
  if not ignore_loscore then
   state.loscore=min(
@@ -1031,8 +1044,9 @@ function gameover_draw()
 
  spr(8,51,34,4,2)
  local x=0
- for f in all(state.flowers) do
-  f:draw(34+x*44,34)
+ for i=1,2 do
+  state.flowers[i]
+  :draw(34+x*44,34)
   x+=1
  end
 
@@ -1081,6 +1095,11 @@ function gameover_update()
   end
  end
 
+ foreach(
+  state.flowers,
+  flower.update
+ )
+
  state.autoplay-=1
  if
   state.autoplay==0 or
@@ -1096,8 +1115,6 @@ function show_title()
  reset_garden()
 
  state.autoplay=900
-
- generate_flowers(14)
 
  _draw=title_draw
  _update=title_update
@@ -1117,8 +1134,8 @@ function title_draw()
 
  local x=0
  local y=0
- for f in all(state.flowers) do
-  f:draw(
+ for i=1,14 do
+  state.flowers[i]:draw(
    24+x*16,32+y*16
   )
   if x==4 then
@@ -1136,13 +1153,15 @@ title_update=gameover_update
 
 -->8
 function show_label()
- generate_flowers(12)
-
  _draw=label_draw
  _update=label_update
 end
 
 function label_update()
+ foreach(
+  state.flowers,
+  flower.update
+ )
 end
 
 function label_draw()
@@ -1153,8 +1172,8 @@ function label_draw()
 
  local x=0
  local y=0
- for f in all(state.flowers) do
-  f:draw(
+ for i=1,12 do
+  state.flowers[i]:draw(
    x*16,y*16
   )
   if x==3 then
