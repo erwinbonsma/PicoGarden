@@ -5,8 +5,8 @@ __lua__
 -- a slow-play screensaver game
 -- (c) 2022 eriban
 
-max_decay_find_attempts=32
-num_decay_death_ticks=100
+max_cellfind_attempts=32
+num_decay_death_ticks=16
 history_len=80
 liveliness_limit=50
 max_wait=6
@@ -536,41 +536,58 @@ function bitcounter:count_ca_bits(
  return nbits
 end
 
-decay={}
+cellfind={}
 
-function decay:new(target_idx)
+function cellfind:new(target_idx)
  local o=setmetatable({},self)
  self.__index=self
 
  o.target_idx=target_idx
- o.count=-1
 
  return o
 end
 
-function decay:find_target(ca)
+function cellfind:find_target(ca)
  local specs=ca.specs
- for i=1,max_decay_find_attempts do
+ for i=1,max_cellfind_attempts do
   local x=flr(rnd(specs.w))
   local y=flr(rnd(specs.h))
 
   if ca:get(x,y) then
-   --printh("found target on attempt "
-   -- ..i)
-   self.x=x
-   self.y=y
-   self.count=1
-   self.mask=0xf
-   return
+   printh("found target on attempt "
+    ..i)
+   self.pos={x=x,y=y}
+   return true
   end
  end
- --printh("did not find target")
+ printh("did not find target")
+end
+
+function cellfind:update(cas)
+ if self.pos==nil then
+  self:find_target(
+   cas[self.target_idx]
+  )
+ end
+end
+
+decay=cellfind:new()
+
+function decay:find_target(ca)
+ if cellfind.find_target(
+  self,ca
+ ) then
+  self.count=1
+  self.mask=0xf
+  return true
+ end
 end
 
 function decay:clear_area(ca)
  local specs=ca.specs
- for x=self.x-1,self.x+1 do
-  for y=self.y-1,self.y+1 do
+ local pos=self.pos
+ for x=pos.x-1,pos.x+1 do
+  for y=pos.y-1,pos.y+1 do
    ca:clr(
     (x+specs.w)%specs.w,
     (y+specs.h)%specs.h
@@ -581,7 +598,6 @@ end
 
 function decay:destroy(cas)
  sfx(0)
- self.count=-1
 
  local ti=self.target_idx
  for i=1,4 do
@@ -605,20 +621,17 @@ function decay:destroy(cas)
    self:clear_area(cas[i])
   end
  end
+ self.pos=nil
 end
 
-
 function decay:update(cas)
- if self.count==-1 then
-  self:find_target(
-   cas[self.target_idx]
-  )
-  return
- end
+ cellfind.update(self,cas)
+ if (self.pos==nil) return
 
  for i,ca in pairs(cas) do
-  if not ca:get(self.x,self.y)
-  then
+  if not ca:get(
+   self.pos.x,self.pos.y
+  ) then
    self.mask&=~(1<<(i-1))
   end
  end
@@ -631,9 +644,9 @@ function decay:update(cas)
    self:destroy(cas)
   end
  else
-  --printh("target changed after "
-  -- ..self.count.." steps")
-  self.count=-1
+  printh("target changed after "
+   ..self.count.." steps")
+  self.pos=nil
  end
 end
 
