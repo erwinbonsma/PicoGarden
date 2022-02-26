@@ -849,12 +849,20 @@ function _init()
  state.cy=0
  state.play=not devmode
  state.wait=5
- state.hiscore=0 --dget(1)
- state.loscore=0 --dget(2)
- state.flash_bg=0
+
+ if dget(0)!=1 then
+  -- old (or no) cartdata
+  dset(0,1) --set version
+  dset(1,0)
+  dset(2,0)
+ end
+ state.hiscore=dget(1)
+ state.loscore=dget(2)
  if state.loscore==0 then
   state.loscore=0x7fff.ffff
  end
+
+ state.flash_bg=0
 
  expand=init_expand()
  flash=init_flash()
