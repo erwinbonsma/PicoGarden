@@ -7,6 +7,7 @@ __lua__
 
 max_cellfind_attempts=32
 num_decay_death_ticks=16
+mutate_prob=1/512
 history_len=80
 liveliness_limit=50
 max_wait=6
@@ -35,6 +36,13 @@ c_dblue=1
 c_dgray=8
 
 bit0=0x0.0001
+
+dirs={
+ {dx=1,dy=0},
+ {dx=0,dy=1},
+ {dx=-1,dy=0},
+ {dx=0,dy=-1},
+}
 
 function count_bits(val)
  assert(val==flr(val))
@@ -554,13 +562,13 @@ function cellfind:find_target(ca)
   local y=flr(rnd(specs.h))
 
   if ca:get(x,y) then
-   printh("found target on attempt "
-    ..i)
+   --printh("found target on attempt "
+   -- ..i)
    self.pos={x=x,y=y}
    return true
   end
  end
- printh("did not find target")
+ --printh("did not find target")
 end
 
 function cellfind:update(cas)
@@ -641,11 +649,54 @@ function decay:update(cas)
  )!=0 then
   self.count+=1
   if self.count==num_decay_death_ticks then
+   printh("decay at layer "
+    ..self.target_idx)
    self:destroy(cas)
   end
  else
-  printh("target changed after "
-   ..self.count.." steps")
+  --printh("target changed after "
+  -- ..self.count.." steps")
+  self.pos=nil
+ end
+end
+
+mutator=cellfind:new()
+
+-- spawn a random neighbour cell
+function mutator:mutate(ca)
+ local offset=flr(rnd(#dirs))
+ for i=1,4 do
+  local dir=dirs[
+   1+(i+offset)%#dirs
+  ]
+  local x=(
+   self.pos.x+dir.dx+ca.specs.w
+  )%ca.specs.w
+  local y=(
+   self.pos.y+dir.dy+ca.specs.h
+  )%ca.specs.h
+  if not ca:get(x,y) then
+   ca:set(x,y)
+   return
+  end
+ end
+end
+
+function mutator:update(cas)
+ if rnd(1)<mutate_prob then
+  self.do_mutate=true
+ end
+ if (not self.do_mutate) return
+
+ cellfind.update(self,cas)
+
+ if self.pos!=nil then
+  printh("mutate at layer "
+   ..self.target_idx)
+  self:mutate(
+   cas[self.target_idx]
+  )
+  self.do_mutate=false
   self.pos=nil
  end
 end
@@ -735,6 +786,7 @@ function reset_garden()
 
  state.gols={}
  state.decays={}
+ state.mutators={}
  state.counts={}
  state.liveliness_checks={}
  for i=1,4 do
@@ -742,8 +794,21 @@ function reset_garden()
    0x4400+i*16*64,specs
   )
   gol:randomize()
+  if false then
+   gol:reset()
+   gol:set(1,0)
+   gol:set(2,1)
+   gol:set(0,2)
+   gol:set(1,2)
+   gol:set(2,2)
+  end
+
   add(state.gols,gol)
   add(state.decays,decay:new(i))
+  add(
+   state.mutators,
+   mutator:new(i)
+  )
   add(state.counts,{})
   add(
    state.liveliness_checks,
@@ -784,8 +849,8 @@ function _init()
  state.cy=0
  state.play=not devmode
  state.wait=5
- state.hiscore=dget(1)
- state.loscore=dget(2)
+ state.hiscore=0 --dget(1)
+ state.loscore=0 --dget(2)
  state.flash_bg=0
  if state.loscore==0 then
   state.loscore=0x7fff.ffff
@@ -1045,11 +1110,17 @@ function main_update()
     state.liveliness_checks[i]
      :update(ncells)
     total_cells+=ncells
+
+    if ncells>0 then
+     state.decays[i]:update(
+      state.gols
+     )
+     state.mutators[i]:update(
+      state.gols
+     )
+    end
    end
 
-   for d in all(state.decays) do
-    d:update(state.gols)
-   end
    state.steps+=1>>16
    state.biomass_sum+=total_cells>>16
 
