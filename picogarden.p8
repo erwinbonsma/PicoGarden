@@ -1058,14 +1058,14 @@ function draw_revive_rect()
   state.revive_delta and
   c_dgreen or c_lpurple
  )
- for w=1,4 do
+ for w=1,3 do
   local y1=127-y0
   local x1=127-x0
-  for x=x0,x1 do
+  for x=max(x0,0),min(x1,127) do
    if (pget(x,y0)==0) pset(x,y0)
    if (pget(x,y1)==0) pset(x,y1)
   end
-  for y=y0+1,y1-1 do
+  for y=max(y0,0),min(y1,127) do
    if (pget(x0,y)==0) pset(x0,y)
    if (pget(x1,y)==0) pset(x1,y)
   end
