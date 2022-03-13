@@ -544,6 +544,99 @@ function bitcounter:count_ca_bits(
  return nbits
 end
 
+cellhistory={}
+
+function cellhistory:new()
+ local o=setmetatable({},self)
+ self.__index=self
+
+ o.counter=bitcounter:new()
+
+ return o
+end
+
+function cellhistory:reset()
+ self.counts={}
+ for i=1,#state.gols do
+  self.counts[i]={}
+ end
+
+ self.idx=history_len-1
+ self:count()
+ self.wrapped=false
+end
+
+function cellhistory:num_cells(
+ layer_idx
+)
+ return self.counts[layer_idx][self.idx]
+end
+
+function cellhistory:total_cells()
+ local total=0
+ for i=1,#state.gols do
+  total+=self.counts[i][self.idx]
+ end
+ return total
+end
+
+function cellhistory:num_empty()
+ local num_empty=0
+ for i=1,#state.gols do
+  if self.counts[i][self.idx]==0
+  then
+   num_empty+=1
+  end
+ end
+ return num_empty
+end
+
+function cellhistory:count()
+ self.idx+=1
+ if self.idx==history_len then
+  self.idx=0
+  self.wrapped=true
+ end
+
+ local total=0
+ for i,g in pairs(state.gols) do
+  local ncells=
+	  self.counter:count_ca_bits(g)
+  self.counts[i][self.idx]=ncells
+  total+=ncells
+ end
+
+ return total
+end
+
+function cellhistory:draw_plot()
+ rectfill(24,32,103,95,0)
+
+ local idx0=0
+ local np=self.idx
+ if self.wrapped then
+  idx0=(self.idx+1)%history_len
+  np=history_len
+ end
+
+ for i,h in pairs(self.counts) do
+  local c=0x1<<(i-1)
+  for j=0,np-1 do
+   local v=h[(idx0+j)%history_len]
+   -- use a log-like scale for
+   -- the y-axis based on:
+   -- y=x*(x+1)/(2*1.6)
+   -- the factor 1.6 scales the
+   -- axis. fv is obtained from
+   -- quadratic formula
+   local fv=sqrt(0.25+2*v*1.6)
+   local y=95-max(0,min(63,fv-2))
+   local x=24+j
+   pset(x,y,pget(x,y)|c)
+  end
+ end
+end
+
 cellfind={}
 
 function cellfind:new(target_idx)
@@ -836,7 +929,6 @@ function reset_garden()
  state.gols={}
  state.decays={}
  state.mutators={}
- state.counts={}
  state.liveliness_checks={}
  for i=1,4 do
   local gol=ca:new(
@@ -858,7 +950,6 @@ function reset_garden()
    state.mutators,
    mutator:new(i)
   )
-  add(state.counts,{})
   add(
    state.liveliness_checks,
    liveliness_check:new(i)
@@ -877,6 +968,7 @@ function start_game()
  state.btnx_hold=0
  state.fadein=32
  state.flash_bg=0
+ state.history:reset()
 
  _draw=main_draw
  _update=main_update
@@ -894,8 +986,6 @@ function _init()
  cartdata("eriban_picogarden")
 
  state={}
- state.cx=0
- state.cy=0
  state.wait=5
 
  load_hiscores()
@@ -906,7 +996,7 @@ function _init()
  flash=init_flash()
  state.flowers=init_flowers(14)
 
- state.bitcounter=bitcounter:new()
+ state.history=cellhistory:new()
 
  pal(display_palette,1)
 
@@ -996,29 +1086,6 @@ function draw_border()
  end
 end
 
-function draw_plot()
- for i,h in pairs(state.counts) do
-  local c=0x1<<(i-1)
-  local tmax=state.steps<<16
-  local tmin=max(
-   tmax-history_len,0
-  )
-  for t=tmin,tmax-1 do
-   local x=24+t-tmin
-   local v=h[t%history_len]
-   -- use a log-like scale for
-   -- the y-axis based on:
-   -- y=x*(x+1)/(2*1.6)
-   -- the factor 1.6 scales the
-   -- axis. fv is obtained from
-   -- quadratic formula
-   local fv=sqrt(0.25+2*v*1.6)
-   local y=95-max(0,min(63,fv-2))
-   pset(x,y,pget(x,y)|c)
-  end
- end
-end
-
 function draw_garden()
  for i,g in pairs(state.gols) do
   draw_gol(i,g)
@@ -1038,8 +1105,7 @@ function main_draw()
  end
  draw_border()
  if state.viewmode==0 then
-  rectfill(24,32,103,95,0)
-  draw_plot()
+  state.history:draw_plot()
  elseif state.fadein>0 then
   rectfill(
    56-state.fadein,
@@ -1059,6 +1125,29 @@ function main_draw()
  end
 end
 
+function switch_viewmode(delta)
+ local skip_combined=(
+  state.history:num_empty()
+  ==#state.gols-1
+ )
+ local continue=true
+ while continue do
+  state.viewmode=(
+   state.viewmode+delta+6
+  )%6
+
+  continue=(
+   state.viewmode%5!=0
+   and state.history:num_cells(
+    state.viewmode
+   )==0
+  ) or (
+   skip_combined and
+   state.viewmode==5
+  )
+ end
+end
+
 function main_update()
  if btnp(⬆️) then
   if state.wait>0 then
@@ -1071,12 +1160,10 @@ function main_update()
   end
  end
  if btnp(⬅️) then
-  state.viewmode=
-   (state.viewmode+5)%6
+  switch_viewmode(-1)
  end
  if btnp(➡️) then
-  state.viewmode=
-   (state.viewmode+1)%6
+  switch_viewmode(1)
  end
  if btnp(🅾️) then
   if state.revive_wait==0 then
@@ -1085,6 +1172,7 @@ function main_update()
    state.revive_wait=min_revive_delay
    state.flash_bg=8
    state.num_revives+=1>>16
+   state.history:count()
    return
   end
  end
@@ -1116,15 +1204,12 @@ function main_update()
   (state.steps<<16)%history_len
  local total_cells=0
  for i,g in pairs(state.gols) do
-  g:step()
   local ncells=
-	  state.bitcounter:count_ca_bits(g)
-  state.counts[i][idx]=ncells
-  state.liveliness_checks[i]
-   :update(ncells)
-  total_cells+=ncells
-
+   state.history:num_cells(i)
   if ncells>0 then
+   g:step()
+   state.liveliness_checks[i]
+    :update(ncells)
    state.decays[i]:update(
     state.gols
    )
@@ -1137,7 +1222,7 @@ function main_update()
  state.steps+=1>>16
  state.biomass_sum+=total_cells>>16
 
- if total_cells==0 then
+ if state.history:count()==0 then
   gameover()
  end
 
