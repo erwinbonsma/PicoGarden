@@ -34,6 +34,8 @@ c_lgray=10
 c_brown=4
 c_dblue=1
 c_dgray=8
+c_purple=2
+c_lpurple=9
 
 bit0=0x0.0001
 
@@ -894,19 +896,6 @@ function init_expand()
  return expand
 end
 
-function init_flash()
- local flash={}
-
- for i=0,255 do
-  local v=i
-  if (i&0xf0==0) v|=0x50
-  if (i&0x0f==0) v|=0x05
-  flash[i]=v
- end
-
- return flash
-end
-
 function show_loscore()
  local autoplay=max(
   state.num_revives,1
@@ -1025,7 +1014,6 @@ function _init()
  load_hiscores()
 
  expand=init_expand()
- flash=init_flash()
  state.flowers=init_flowers(14)
 
  state.history=cellhistory:new()
@@ -1061,20 +1049,28 @@ function draw_border()
 end
 
 function draw_revive_rect()
- local x=flr(24*(
+ local x0=flr(24*(
   state.revive_wait/32
  ))-4
- local y=state.revive_wait-4
- print(state.revive_delta,0,0)
+ local y0=state.revive_wait-4
+ color(
+  (32-state.revive_wait)*6<
+  state.revive_delta and
+  c_dgreen or c_lpurple
+ )
  for w=1,4 do
-  color(
-   (32-state.revive_wait-w)*6<
-   state.revive_delta and
-   c_dgreen or c_dblue
-  )
-  rect(x,y,127-x,127-y)
-  x+=1
-  y+=1
+  local y1=127-y0
+  local x1=127-x0
+  for x=x0,x1 do
+   if (pget(x,y0)==0) pset(x,y0)
+   if (pget(x,y1)==0) pset(x,y1)
+  end
+  for y=y0+1,y1-1 do
+   if (pget(x0,y)==0) pset(x0,y)
+   if (pget(x1,y)==0) pset(x1,y)
+  end
+  x0+=1
+  y0+=1
  end
 end
 
