@@ -10,6 +10,8 @@ num_decay_death_ticks=16
 mutate_prob=1/512
 history_len=80
 liveliness_limit=50
+liveliness_decay=0.99
+liveliness_inc=100
 max_wait=6
 min_revive_delay=32
 cart_version=2
@@ -735,8 +737,6 @@ function decay:clear_area(ca)
 end
 
 function decay:destroy(cas)
- sfx(0)
-
  local ti=self.target_idx
  for i=1,4 do
   if (
@@ -781,6 +781,7 @@ function decay:update(cas)
   self.count+=1
   if self.count==num_decay_death_ticks then
    self:destroy(cas)
+   return true
   end
  else
   self.pos=nil
@@ -829,14 +830,12 @@ end
 
 liveliness_check={}
 
-function liveliness_check:new(
- idx
-)
+function liveliness_check:new()
  local o=setmetatable({},self)
  self.__index=self
 
- o.idx=idx
  o.min=9999
+ o.level=liveliness_inc
 
  return o
 end
@@ -844,15 +843,19 @@ end
 function liveliness_check
  :update(num_cells)
 
+ self.level*=liveliness_decay
+
  if num_cells<self.min then
   self.min=num_cells
   return
  end
 
  if num_cells>
-  self.min+liveliness_limit then
-  sfx(self.idx)
-  self.min=num_cells
+    self.min+liveliness_limit
+ then
+  self.level+=liveliness_inc
+  self.min+=liveliness_limit
+  return true
  end
 end
 
@@ -934,14 +937,6 @@ function reset_garden()
    0x4400+i*16*64,specs
   )
   gol:randomize()
-  if false then
-   gol:reset()
-   gol:set(1,0)
-   gol:set(2,1)
-   gol:set(0,2)
-   gol:set(1,2)
-   gol:set(2,2)
-  end
 
   add(state.gols,gol)
   add(state.decays,decay:new(i))
@@ -951,7 +946,7 @@ function reset_garden()
   )
   add(
    state.liveliness_checks,
-   liveliness_check:new(i)
+   liveliness_check:new()
   )
  end
 end
@@ -1054,6 +1049,43 @@ function draw_garden()
  for i,g in pairs(state.gols) do
   g:draw(i)
  end
+end
+
+function update_garden()
+ local idx=
+  (state.steps<<16)%history_len
+ local total_cells=0
+ for i,g in pairs(state.gols) do
+  local ncells=
+   state.history:num_cells(i)
+  if ncells>0 then
+   g:step()
+   local check=
+    state.liveliness_checks[i]
+   local visible=(
+    state.viewmode==i or
+    state.viewmode%5==0
+   )
+   if check:update(ncells)
+      and visible
+   then
+    sfx(i)
+   end
+   if check.level<50 then
+    if state.decays[i]:update(
+        state.gols
+       ) and visible
+    then
+     sfx(0)
+    end
+    state.mutators[i]:update(
+     state.gols
+    )
+   end
+  end
+ end
+
+ state.steps+=bit0
 end
 
 function main_draw()
@@ -1174,26 +1206,7 @@ function main_update()
   end
  end
 
- local idx=
-  (state.steps<<16)%history_len
- local total_cells=0
- for i,g in pairs(state.gols) do
-  local ncells=
-   state.history:num_cells(i)
-  if ncells>0 then
-   g:step()
-   state.liveliness_checks[i]
-    :update(ncells)
-   state.decays[i]:update(
-    state.gols
-   )
-   state.mutators[i]:update(
-    state.gols
-   )
-  end
- end
-
- state.steps+=bit0
+ update_garden()
 
  if state.history:count()==0 then
   gameover()
