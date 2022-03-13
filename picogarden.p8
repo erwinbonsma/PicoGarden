@@ -962,6 +962,8 @@ function start_game()
  state.num_mutations=0
  state.btnx_hold=0
  state.fadein=32
+ state.target_wait=state.wait
+ state.wait=5
  state.history:reset()
 
  _draw=main_draw
@@ -1156,6 +1158,17 @@ function main_update()
  state.t+=1
  if state.t%(1<<state.wait)!=0 then
   return
+ end
+
+ if state.wait!=
+    state.target_wait and
+    state.t%16==0
+ then
+  if state.wait<state.target_wait then
+   state.wait+=1
+  else
+   state.wait-=1
+  end
  end
 
  local idx=
