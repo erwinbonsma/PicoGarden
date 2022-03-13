@@ -11,7 +11,7 @@ mutate_prob=1/512
 history_len=80
 liveliness_limit=50
 max_wait=6
-min_revive_delay=10
+min_revive_delay=32
 cart_version=2
 
 -- colors so that:
@@ -1002,7 +1002,6 @@ function start_game()
  state.num_revives=0
  state.btnx_hold=0
  state.fadein=32
- state.flash_bg=0
  state.history:reset()
 
  _draw=main_draw
@@ -1024,8 +1023,6 @@ function _init()
  state.wait=0
 
  load_hiscores()
-
- state.flash_bg=0
 
  expand=init_expand()
  flash=init_flash()
@@ -1052,19 +1049,6 @@ function draw_border()
   a+=64
  end
 
- if state.flash_bg>0 then
-  for y=32,95 do
-   local a=d0+y*64
-   local b=a+52
-   for x=1,12 do
-    poke(a,flash[@a])
-    poke(b,flash[@b])
-    a+=1
-    b+=1
-   end
-  end
- end
-
  local a=d0
  local b=d0+64*96
  local d=64*64
@@ -1074,18 +1058,23 @@ function draw_border()
   a+=64
   b+=64
  end
+end
 
- if state.flash_bg>0 then
-  for y=0,31 do
-   local a=d0+y*64+12
-   local b=a+96*64
-   for x=1,40 do
-    poke(a,flash[@a])
-    poke(b,flash[@b])
-    a+=1
-    b+=1
-   end
-  end
+function draw_revive_rect()
+ local x=flr(24*(
+  state.revive_wait/32
+ ))-4
+ local y=state.revive_wait-4
+ print(state.revive_delta,0,0)
+ for w=1,4 do
+  color(
+   (32-state.revive_wait-w)*6<
+   state.revive_delta and
+   c_dgreen or c_dblue
+  )
+  rect(x,y,127-x,127-y)
+  x+=1
+  y+=1
  end
 end
 
@@ -1105,6 +1094,9 @@ function main_draw()
    :draw(state.viewmode)
  end
  draw_border()
+ if state.revive_wait>0 then
+  draw_revive_rect()
+ end
  if state.viewmode==0 then
   state.history:draw_plot()
  elseif state.fadein>0 then
@@ -1169,11 +1161,15 @@ function main_update()
  if btnp(🅾️) then
   if state.revive_wait==0 then
    --sfx(5)
+   local before=
+    state.history:total_cells()
    revive(state.gols)
    state.revive_wait=min_revive_delay
-   state.flash_bg=8
    state.num_revives+=1>>16
-   state.history:count()
+   state.revive_delta=(
+    state.history:count()
+    -before
+   )
    return
   end
  end
@@ -1191,9 +1187,6 @@ function main_update()
 
  if state.fadein>0 then
   state.fadein-=1
- end
- if state.flash_bg>0 then
-  state.flash_bg-=1
  end
 
  state.t+=1
