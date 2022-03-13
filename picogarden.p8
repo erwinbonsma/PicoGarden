@@ -933,6 +933,7 @@ function reset_garden()
  state.decays={}
  state.mutators={}
  state.liveliness_checks={}
+ state.steps=0
  for i=1,4 do
   local gol=ca:new(
    0x4400+i*16*64,specs
@@ -962,7 +963,6 @@ end
 
 function start_game()
  state.t=0
- state.steps=0
  state.viewmode=5
  state.revive_wait=0
  state.num_revives=0
@@ -1202,9 +1202,11 @@ end
 function gameover(
  ignore_loscore
 )
+ local score=state.steps
+ state.score=score
+
  reset_garden()
 
- local score=state.steps
  local improved_lo=false
  if not ignore_loscore then
   if score<state.loscore then
@@ -1218,7 +1220,9 @@ function gameover(
   state.num_revives==0
  )
  local improved_hi=false
- if score>state.hiscore[autoplay] then
+ if score>
+    state.hiscore[autoplay]
+ then
   state.hiscore[autoplay]=score
   dset(autoplay and 2 or 1,score)
   improved_hi=true
@@ -1278,7 +1282,6 @@ function gameover_draw()
  local autoplay=(
   state.num_revives==0
  )
- local score=state.steps
 
  rprint("decays",70,y)
  rprint(
@@ -1304,12 +1307,12 @@ function gameover_draw()
  end
 
  rprint("score",70,y)
- rprint(u32_tostr(score),102,y)
+ rprint(u32_tostr(state.score),102,y)
  y+=10
 
  if state.show_loscore then
   color(
-   state.loscore==score
+   state.loscore==state.score
    and c_red or c_dgray
   )
   rprint("lo-score",70,y)
@@ -1321,7 +1324,8 @@ function gameover_draw()
  end
  if state.show_hiscore then
   color(
-   state.hiscore[autoplay]==score
+   state.hiscore[autoplay]==
+   state.score
    and c_dgreen or c_dgray
   )
   rprint("hi-score",70,y)
@@ -1337,9 +1341,8 @@ function gameover_update()
  state.show_count+=1
 
  if state.show_count%30==0 then
-  for ca in all(state.gols) do
-    ca:step()
-  end
+  foreach(state.gols,ca.step)
+  state.steps+=1>>16
  end
 
  foreach(
