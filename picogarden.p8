@@ -13,6 +13,7 @@ liveliness_limit=50
 max_wait=6
 min_revive_delay=10
 devmode=false
+cart_version=2
 
 -- colors so that:
 -- - intensity increases with
@@ -779,6 +780,55 @@ function init_flash()
  return flash
 end
 
+function show_loscore()
+ local autoplay=max(
+  state.num_revives,1
+ )
+ return (
+  autoplay
+  and state.loscore<
+      state.hiscore[autoplay]
+ )
+end
+
+function show_hiscore()
+ local autoplay=max(
+  state.num_revives,1
+ )
+ return (
+  not autoplay
+  or state.hiscore[autoplay]!=
+     state.loscore
+ )
+end
+
+function load_hiscores()
+ if dget(0)!=cart_version then
+  -- old (or no) cartdata
+  dset(0,cart_version)
+  if dget(0)==1 then
+   --inserted auto-play hiscore
+   --at index #1
+   dset(3,dget(2))
+   dset(2,dget(1))
+   dset(1,0)
+  else
+   dset(1,0)
+   dset(2,0)
+   dset(3,0)
+  end
+ end
+
+ state.hiscore={}
+ state.hiscore[0]=dget(1)
+ state.hiscore[1]=dget(2)
+ state.loscore=dget(3)
+
+ if state.loscore==0 then
+  state.loscore=0x7fff.ffff
+ end
+end
+
 function reset_garden()
  local specs=ca_specs:new(
   80,64,true
@@ -850,17 +900,7 @@ function _init()
  state.play=not devmode
  state.wait=5
 
- if dget(0)!=1 then
-  -- old (or no) cartdata
-  dset(0,1) --set version
-  dset(1,0)
-  dset(2,0)
- end
- state.hiscore=dget(1)
- state.loscore=dget(2)
- if state.loscore==0 then
-  state.loscore=0x7fff.ffff
- end
+ load_hiscores()
 
  state.flash_bg=0
 
@@ -1155,27 +1195,40 @@ function gameover(
 )
  reset_garden()
 
+ local score=state.steps
+ local improved_lo=false
  if not ignore_loscore then
-  state.loscore=min(
-   state.loscore,state.steps
-  )
-  dset(2,state.loscore)
+  if score<state.loscore then
+   state.loscore=score
+   dset(3,score)
+   improved_lo=true
+  end
  end
- state.hiscore=max(
-  state.hiscore,state.steps
+
+ local autoplay=max(
+  state.num_revives,1
  )
- dset(1,state.hiscore)
+ local improved_hi=false
+ if score>state.hiscore[autoplay] then
+  state.hiscore[autoplay]=score
+  dset(1+autoplay,score)
+  improved_hi=true
+ end
  printh(
-  "score="..state.steps..
-  "/"..u32_tostr(state.steps)..
-  ", hiscore="..state.hiscore..
-  "/"..u32_tostr(state.hiscore)
+  "score="..score..
+  "/"..u32_tostr(score)..
+  ", hiscore="..state.hiscore[autoplay]..
+  "/"..u32_tostr(state.hiscore[autoplay])
  )
  state.autoplay=900
 
- if state.steps==state.hiscore then
+ if improved_hi and
+    show_hiscore()
+ then
   music(0)
- elseif state.steps==state.loscore then
+ elseif improved_lo and
+        show_loscore()
+ then
   music(2)
  else
   sfx(5)
@@ -1201,51 +1254,58 @@ function gameover_draw()
  end
 
  color(c_brown)
- rprint("num revives",70,59)
- rprint(
-  u32_tostr(state.num_revives),
-  102,59
+ local y=59
+ local autoplay=max(
+  state.num_revives,1
  )
- rprint("avg biomass",70,65)
+ local score=state.steps
+
+ if not autoplay then
+  rprint("num revives",70,y)
+  rprint(
+   u32_tostr(state.num_revives),
+   102,y
+  )
+  y+=6
+ end
+
+ rprint("avg biomass",70,y)
  rprint(
   u32_tostr(
    (state.biomass_sum/
     state.steps
    )>>16
   ),
-  102,65
+  102,y
  )
- rprint("score",70,71)
- rprint(
-  u32_tostr(state.steps),
-  102,71
- )
+ y+=6
 
- if
-  state.loscore!=0x7fff.ffff and
-  state.loscore!=state.hiscore
- then
+ rprint("score",70,y)
+ rprint(u32_tostr(score),102,y)
+ y+=10
+
+ if show_loscore() then
   color(
-   state.loscore==state.steps
+   state.loscore==score
    and c_red or c_dgray
   )
-  rprint("lo-score",70,81)
+  rprint("lo-score",70,y)
   rprint(
    u32_tostr(state.loscore),
-   102,81
+   102,y
   )
+  y+=6
  end
- if
-  state.hiscore!=state.loscore
- then
+ if show_hiscore() then
   color(
-   state.hiscore==state.steps
+   state.hiscore[autoplay]==score
    and c_dgreen or c_dgray
   )
-  rprint("hi-score",70,87)
-  rprint(
-   u32_tostr(state.hiscore),
-   102,87
+  rprint("hi-score",70,y)
+  rprint(u32_tostr(
+    state.hiscore[autoplay]
+   ),
+   102,y
   )
  end
 end
