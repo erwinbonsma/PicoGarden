@@ -1021,7 +1021,7 @@ function _init()
  cartdata("eriban_picogarden")
 
  state={}
- state.wait=5
+ state.wait=0
 
  load_hiscores()
 
