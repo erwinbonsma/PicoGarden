@@ -443,6 +443,41 @@ function ca:step()
  end
 end
 
+function ca:draw(layer_idx)
+ local d0=0x6000+12+64*32
+ local bg=self.bitgrid
+ for y=0,63 do
+  local d=d0+y*64
+  local rb=80
+  local a
+   =bg.a0+(y+1)*self.specs.bpr
+  local rbpu=bpu_ca-1
+  while rb>0 do
+   local v
+   local nb=min(rbpu,rb)
+   if rbpu>=8 then
+    v=(
+     $a>>>(bpu_ca-rbpu)
+    )&0x0.00ff
+    rbpu-=8
+   else
+    v=(
+     $a&0x7fff.ffff
+    )>>>(bpu_ca-rbpu)
+    a+=4
+    v|=($a<<rbpu)&0x0.00ff
+    rbpu=bpu_ca-(8-rbpu)
+   end
+   rb-=8
+   v<<=16
+   poke4(d,$d|(
+    expand[v]<<(layer_idx-1)
+   ))
+   d+=4
+  end
+ end
+end
+
 function ca:_address(x,y)
  return (
   self.bitgrid.a0
@@ -1005,41 +1040,6 @@ function _init()
  --show_label()
 end
 
-function draw_gol(i,gol)
- local d0=0x6000+12+64*32
- local bg=gol.bitgrid
- for y=0,63 do
-  local d=d0+y*64
-  local rb=80
-  local a
-   =bg.a0+(y+1)*gol.specs.bpr
-  local rbpu=bpu_ca-1
-  while rb>0 do
-   local v
-   local nb=min(rbpu,rb)
-   if rbpu>=8 then
-    v=(
-     $a>>>(bpu_ca-rbpu)
-    )&0x0.00ff
-    rbpu-=8
-   else
-    v=(
-     $a&0x7fff.ffff
-    )>>>(bpu_ca-rbpu)
-    a+=4
-    v|=($a<<rbpu)&0x0.00ff
-    rbpu=bpu_ca-(8-rbpu)
-   end
-   rb-=8
-   v<<=16
-   poke4(
-    d,$d|(expand[v]<<(i-1))
-   )
-   d+=4
-  end
- end
-end
-
 function draw_border()
  local d0=0x6000
  local a=d0+64*32
@@ -1088,7 +1088,7 @@ end
 
 function draw_garden()
  for i,g in pairs(state.gols) do
-  draw_gol(i,g)
+  g:draw(i)
  end
 end
 
@@ -1098,10 +1098,8 @@ function main_draw()
  if state.viewmode%5==0 then
   draw_garden()
  else
-  draw_gol(
-   state.viewmode,
-   state.gols[state.viewmode]
-  )
+  state.gols[state.viewmode]
+   :draw(state.viewmode)
  end
  draw_border()
  if state.viewmode==0 then
