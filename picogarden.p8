@@ -1279,31 +1279,33 @@ function gameover_draw()
   state.num_revives==0
  )
 
- rprint("decays",70,y)
+ rprint("decays",66,y)
  rprint(
   u32_tostr(state.num_decays),
-  102,y
+  98,y
  )
  y+=6
 
- rprint("mutations",70,y)
+ rprint("mutations",66,y)
  rprint(
   u32_tostr(state.num_mutations),
-  102,y
+  98,y
  )
  y+=6
 
  if not autoplay then
-  rprint("revives",70,y)
+  rprint("revives",66,y)
   rprint(
    u32_tostr(state.num_revives),
-   102,y
+   98,y
   )
   y+=6
  end
 
- rprint("score",70,y)
- rprint(u32_tostr(state.score),102,y)
+ rprint("score",66,y)
+ rprint(
+  u32_tostr(state.score),98,y
+ )
  y+=10
 
  if state.show_loscore then
@@ -1311,10 +1313,9 @@ function gameover_draw()
    state.loscore==state.score
    and c_red or c_dgray
   )
-  rprint("lo-score",70,y)
+  rprint("lo-score",66,y)
   rprint(
-   u32_tostr(state.loscore),
-   102,y
+   u32_tostr(state.loscore),98,y
   )
   y+=6
  end
@@ -1324,11 +1325,11 @@ function gameover_draw()
    state.score
    and c_dgreen or c_dgray
   )
-  rprint("hi-score",70,y)
-  rprint(u32_tostr(
+  rprint("hi-score",66,y)
+  rprint(
+   u32_tostr(
     state.hiscore[autoplay]
-   ),
-   102,y
+   ),98,y
   )
  end
 end
