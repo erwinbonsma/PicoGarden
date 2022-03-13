@@ -12,7 +12,6 @@ history_len=80
 liveliness_limit=50
 max_wait=6
 min_revive_delay=10
-devmode=false
 cart_version=2
 
 -- colors so that:
@@ -897,7 +896,6 @@ function _init()
  state={}
  state.cx=0
  state.cy=0
- state.play=not devmode
  state.wait=5
 
  load_hiscores()
@@ -1052,16 +1050,6 @@ function main_draw()
   )
  end
 
- if not state.play then
-  color(10)
-  local x=state.cx+24
-  local y=state.cy+32
-  pset(x-1,y)
-  pset(x+1,y)
-  pset(x,y-1)
-  pset(x,y+1)
- end
-
  if state.btnx_hold>0 then
   rectfill(
    34,61,95,67,0
@@ -1073,63 +1061,32 @@ end
 
 function main_update()
  if btnp(⬆️) then
-  if state.play then
-   if state.wait>0 then
-    state.wait-=1
-   end
-  else
-   state.cy=(state.cy+63)%64
+  if state.wait>0 then
+   state.wait-=1
   end
  end
  if btnp(⬇️) then
-  if state.play then
-   if state.wait<max_wait then
-    state.wait+=1
-   end
-  else
-   state.cy=(state.cy+1)%64
+  if state.wait<max_wait then
+   state.wait+=1
   end
  end
  if btnp(⬅️) then
-  if state.play then
-   state.viewmode=
-    (state.viewmode+5)%6
-  else
-   state.cx=(state.cx+79)%80
-  end
+  state.viewmode=
+   (state.viewmode+5)%6
  end
  if btnp(➡️) then
-  if state.play then
-   state.viewmode=
-    (state.viewmode+1)%6
-  else
-   state.cx=(state.cx+1)%80
-  end
+  state.viewmode=
+   (state.viewmode+1)%6
  end
  if btnp(🅾️) then
-  if state.play then
-   if state.revive_wait==0 then
-    --sfx(5)
-    revive(state.gols)
-    state.revive_wait=min_revive_delay
-    state.flash_bg=8
-    state.num_revives+=1>>16
-    return
-   end
-  else
-   -- dev mode manipulation
-   local gol=state.gols[
-    max(1,min(4,state.viewmode))
-   ]
-   if gol:get(state.cx,state.cy) then
-    gol:clr(state.cx,state.cy)
-   else
-    gol:set(state.cx,state.cy)
-   end
+  if state.revive_wait==0 then
+   --sfx(5)
+   revive(state.gols)
+   state.revive_wait=min_revive_delay
+   state.flash_bg=8
+   state.num_revives+=1>>16
+   return
   end
- end
- if btnp(❎) and devmode then
-  state.play=not state.play
  end
  if btn(❎) then
   if state.fadein==0 then
@@ -1143,50 +1100,49 @@ function main_update()
   state.btnx_hold=0
  end
 
- if state.play then
-  state.t+=1
-  if state.t%(1<<state.wait)==0 then
-   local idx=
-    (state.steps<<16)%history_len
-   local total_cells=0
-   for i,g in pairs(state.gols) do
-    g:step()
-    local ncells=
-	    state.bitcounter
-      :count_ca_bits(g)
-    state.counts[i][idx]=ncells
-    state.liveliness_checks[i]
-     :update(ncells)
-    total_cells+=ncells
-
-    if ncells>0 then
-     state.decays[i]:update(
-      state.gols
-     )
-     state.mutators[i]:update(
-      state.gols
-     )
-    end
-   end
-
-   state.steps+=1>>16
-   state.biomass_sum+=total_cells>>16
-
-   if total_cells==0 then
-    gameover()
-   end
-   
-   if state.revive_wait>0 then
-    state.revive_wait-=1
-   end
-  end
- end
-
  if state.fadein>0 then
   state.fadein-=1
  end
  if state.flash_bg>0 then
   state.flash_bg-=1
+ end
+
+ state.t+=1
+ if state.t%(1<<state.wait)!=0 then
+  return
+ end
+
+ local idx=
+  (state.steps<<16)%history_len
+ local total_cells=0
+ for i,g in pairs(state.gols) do
+  g:step()
+  local ncells=
+	  state.bitcounter:count_ca_bits(g)
+  state.counts[i][idx]=ncells
+  state.liveliness_checks[i]
+   :update(ncells)
+  total_cells+=ncells
+
+  if ncells>0 then
+   state.decays[i]:update(
+    state.gols
+   )
+   state.mutators[i]:update(
+    state.gols
+   )
+  end
+ end
+
+ state.steps+=1>>16
+ state.biomass_sum+=total_cells>>16
+
+ if total_cells==0 then
+  gameover()
+ end
+
+ if state.revive_wait>0 then
+  state.revive_wait-=1
  end
 end
 
