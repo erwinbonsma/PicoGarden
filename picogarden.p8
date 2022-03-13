@@ -116,6 +116,9 @@ function flower:update()
  if rnd(256)<128 then
   self.grow_count+=1
   if self.grow_count%90==0 then
+   sfx(1+self.colors[
+    self.frame%4+1
+   ])
    self.frame+=1
   end
  end
@@ -970,7 +973,7 @@ function start_game()
  _update=main_update
 end
 
-function init_flowers(n)
+function init_flowers()
  local flowers={}
  for i=1,14 do
   add(flowers,flower:new())
@@ -1334,7 +1337,9 @@ function gameover_draw()
  end
 end
 
-function gameover_update()
+function before_game_update(
+ nflowers
+)
  state.show_count+=1
 
  if state.show_count%30==0 then
@@ -1342,9 +1347,9 @@ function gameover_update()
   state.steps+=bit0
  end
 
- foreach(
-  state.flowers,flower.update
- )
+ for i=1,nflowers do
+  state.flowers[i]:update()
+ end
 
  if (
   state.show_count==899 or
@@ -1354,6 +1359,10 @@ function gameover_update()
  ) then
   start_game()
  end
+end
+
+function gameover_update()
+ before_game_update(2)
 end
 
 function show_title()
@@ -1393,7 +1402,9 @@ function title_draw()
  end
 end
 
-title_update=gameover_update
+function title_update()
+ before_game_update(14)
+end
 
 -->8
 function show_label()
