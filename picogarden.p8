@@ -121,13 +121,13 @@ function flower:update()
 end
 
 function flower:draw(x,y)
- for i=0,2 do
+ for i=1,min(3,self.frame) do
   local s=self.sprites[
-   (self.frame+i)%11+1
+   (self.frame-i)%11+1
   ]
   local si=64+(s%8)*2+(s\8)*32
   pal(7,1<<self.colors[
-   (self.frame+i)%4+1
+   (self.frame-i)%4+1
   ],0)
   spr(si,x,y,2,2)
  end
