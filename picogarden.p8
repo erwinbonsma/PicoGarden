@@ -1035,6 +1035,9 @@ function _init()
 
  pal(display_palette,1)
 
+ --disable button repeat
+ poke(0x5f5c,255)
+
  state.flowers=init_flowers(14)
  show_title()
  --show_label()
