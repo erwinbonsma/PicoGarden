@@ -692,13 +692,10 @@ function cellfind:find_target(ca)
   local y=flr(rnd(specs.h))
 
   if ca:get(x,y) then
-   --printh("found target on attempt "
-   -- ..i)
    self.pos={x=x,y=y}
    return true
   end
  end
- --printh("did not find target")
 end
 
 function cellfind:update(cas)
@@ -760,7 +757,7 @@ function decay:destroy(cas)
   end
  end
  self.pos=nil
- state.num_decays+=1>>16
+ state.num_decays+=bit0
 end
 
 function decay:update(cas)
@@ -780,13 +777,9 @@ function decay:update(cas)
  )!=0 then
   self.count+=1
   if self.count==num_decay_death_ticks then
-   printh("decay at layer "
-    ..self.target_idx)
    self:destroy(cas)
   end
  else
-  --printh("target changed after "
-  -- ..self.count.." steps")
   self.pos=nil
  end
 end
@@ -808,7 +801,7 @@ function mutator:mutate(ca)
   )%ca.specs.h
   if not ca:get(x,y) then
    ca:set(x,y)
-   state.num_mutations+=1>>16
+   state.num_mutations+=bit0
    return
   end
  end
@@ -823,8 +816,6 @@ function mutator:update(cas)
  cellfind.update(self,cas)
 
  if self.pos!=nil then
-  printh("mutate at layer "
-   ..self.target_idx)
   self:mutate(
    cas[self.target_idx]
   )
@@ -883,6 +874,7 @@ function revive(cas)
   end
  end
 end
+
 -->8
 function init_expand()
  local expand={}
@@ -1085,9 +1077,7 @@ function main_draw()
  end
 
  if state.btnx_hold>0 then
-  rectfill(
-   34,61,95,67,0
-  )
+  rectfill(34,61,95,67,0)
   color(c_brown)
   cprint("hold ❎ to exit",62)
  end
@@ -1135,12 +1125,11 @@ function main_update()
  end
  if btnp(🅾️) then
   if state.revive_wait==0 then
-   --sfx(5)
    local before=
     state.history:total_cells()
    revive(state.gols)
    state.revive_wait=min_revive_delay
-   state.num_revives+=1>>16
+   state.num_revives+=bit0
    state.revive_delta=(
     state.history:count()
     -before
@@ -1188,7 +1177,7 @@ function main_update()
   end
  end
 
- state.steps+=1>>16
+ state.steps+=bit0
 
  if state.history:count()==0 then
   gameover()
@@ -1227,12 +1216,6 @@ function gameover(
   dset(autoplay and 2 or 1,score)
   improved_hi=true
  end
- printh(
-  "score="..score..
-  "/"..u32_tostr(score)..
-  ", hiscore="..state.hiscore[autoplay]..
-  "/"..u32_tostr(state.hiscore[autoplay])
- )
  state.show_count=0
 
  state.show_loscore=(
@@ -1342,7 +1325,7 @@ function gameover_update()
 
  if state.show_count%30==0 then
   foreach(state.gols,ca.step)
-  state.steps+=1>>16
+  state.steps+=bit0
  end
 
  foreach(
@@ -1377,7 +1360,6 @@ function title_draw()
 
  spr(3,46,51,5,2)
  color(c_dgray)
- --cprint("pico garden",60)
  cprint("by eriban",71)
 
  local x=0
@@ -1439,6 +1421,7 @@ function label_draw()
  color(c_dgray)
  print("by eriban",14,42)
 end
+
 __gfx__
 00000000000000000000000000000004444004400444000444000000000000000444000040004444440004440000000000000000000000000000000000000000
 00000000000000000000000000000004404404404404404404400000000000004400400404004404044044444000000000000000000000000000000000000000
