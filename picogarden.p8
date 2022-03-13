@@ -599,7 +599,7 @@ end
 
 function cellhistory:reset()
  self.counts={}
- for i=1,#state.gols do
+ for i=1,#state.layers do
   self.counts[i]={}
  end
 
@@ -616,7 +616,7 @@ end
 
 function cellhistory:total_cells()
  local total=0
- for i=1,#state.gols do
+ for i=1,#state.layers do
   total+=self.counts[i][self.idx]
  end
  return total
@@ -624,7 +624,7 @@ end
 
 function cellhistory:num_empty()
  local num_empty=0
- for i=1,#state.gols do
+ for i=1,#state.layers do
   if self.counts[i][self.idx]==0
   then
    num_empty+=1
@@ -641,9 +641,9 @@ function cellhistory:count()
  end
 
  local total=0
- for i,g in pairs(state.gols) do
+ for i,l in pairs(state.layers) do
   local ncells=
-	  self.counter:count_ca_bits(g)
+	  self.counter:count_ca_bits(l)
   self.counts[i][self.idx]=ncells
   total+=ncells
  end
@@ -927,27 +927,19 @@ function reset_garden()
   80,64,true
  )
 
- state.gols={}
- state.decays={}
- state.mutators={}
- state.liveliness_checks={}
  state.steps=0
+
+ state.layers={}
  for i=1,4 do
-  local gol=ca:new(
+  layer=ca:new(
    0x4400+i*16*64,specs
   )
-  gol:randomize()
-
-  add(state.gols,gol)
-  add(state.decays,decay:new(i))
-  add(
-   state.mutators,
-   mutator:new(i)
-  )
-  add(
-   state.liveliness_checks,
+  layer:randomize()
+  layer.decay=decay:new(i)
+  layer.mutator=mutator:new(i)
+  layer.liveliness_check=
    liveliness_check:new()
-  )
+  add(state.layers,layer)
  end
 end
 
@@ -985,7 +977,7 @@ function _init()
  load_hiscores()
 
  expand=init_expand()
- state.flowers=init_flowers(14)
+ state.flowers=init_flowers()
 
  state.history=cellhistory:new()
 
@@ -994,7 +986,6 @@ function _init()
  --disable button repeat
  poke(0x5f5c,255)
 
- state.flowers=init_flowers(14)
  show_title()
  --show_label()
 end
@@ -1046,40 +1037,39 @@ function draw_revive_rect()
 end
 
 function draw_garden()
- for i,g in pairs(state.gols) do
-  g:draw(i)
+ for i,l in pairs(state.layers) do
+  l:draw(i)
  end
 end
 
 function update_garden()
- local idx=
-  (state.steps<<16)%history_len
  local total_cells=0
- for i,g in pairs(state.gols) do
+ for i,layer in pairs(
+  state.layers
+ ) do
   local ncells=
    state.history:num_cells(i)
   if ncells>0 then
-   g:step()
-   local check=
-    state.liveliness_checks[i]
+   layer:step()
+   local chk=layer.liveliness_check
    local visible=(
     state.viewmode==i or
     state.viewmode%5==0
    )
-   if check:update(ncells)
+   if chk:update(ncells)
       and visible
    then
     sfx(i)
    end
-   if check.level<50 then
-    if state.decays[i]:update(
-        state.gols
+   if chk.level<50 then
+    if layer.decay:update(
+        state.layers
        ) and visible
     then
      sfx(0)
     end
-    state.mutators[i]:update(
-     state.gols
+    layer.mutator:update(
+     state.layers
     )
    end
   end
@@ -1091,17 +1081,20 @@ end
 function main_draw()
  cls()
 
- if state.viewmode%5==0 then
+ local vm=state.viewmode
+
+ if vm%5==0 then
   draw_garden()
  else
-  state.gols[state.viewmode]
-   :draw(state.viewmode)
+  state.layers[vm]:draw(vm)
  end
  draw_border()
+
  if state.revive_wait>0 then
   draw_revive_rect()
  end
- if state.viewmode==0 then
+
+ if vm==0 then
   state.history:draw_plot()
  elseif state.fadein>0 then
   rectfill(
@@ -1123,7 +1116,7 @@ end
 function switch_viewmode(delta)
  local skip_combined=(
   state.history:num_empty()
-  ==#state.gols-1
+  ==#state.layers-1
  )
  local continue=true
  while continue do
@@ -1164,7 +1157,7 @@ function main_update()
   if state.revive_wait==0 then
    local before=
     state.history:total_cells()
-   revive(state.gols)
+   revive(state.layers)
    state.revive_wait=min_revive_delay
    state.num_revives+=bit0
    state.revive_delta=(
@@ -1356,7 +1349,7 @@ function before_game_update(
  state.show_count+=1
 
  if state.show_count%30==0 then
-  foreach(state.gols,ca.step)
+  foreach(state.layers,ca.step)
   state.steps+=bit0
  end
 
