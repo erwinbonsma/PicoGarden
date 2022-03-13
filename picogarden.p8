@@ -760,6 +760,7 @@ function decay:destroy(cas)
   end
  end
  self.pos=nil
+ state.num_decays+=1>>16
 end
 
 function decay:update(cas)
@@ -807,6 +808,7 @@ function mutator:mutate(ca)
   )%ca.specs.h
   if not ca:get(x,y) then
    ca:set(x,y)
+   state.num_mutations+=1>>16
    return
   end
  end
@@ -896,38 +898,15 @@ function init_expand()
  return expand
 end
 
-function show_loscore()
- local autoplay=max(
-  state.num_revives,1
- )
- return (
-  autoplay
-  and state.loscore<
-      state.hiscore[autoplay]
- )
-end
-
-function show_hiscore()
- local autoplay=max(
-  state.num_revives,1
- )
- return (
-  not autoplay
-  or state.hiscore[autoplay]!=
-     state.loscore
- )
-end
-
 function load_hiscores()
  if dget(0)!=cart_version then
   -- old (or no) cartdata
   dset(0,cart_version)
   if dget(0)==1 then
    --inserted auto-play hiscore
-   --at index #1
+   --at index #2
    dset(3,dget(2))
-   dset(2,dget(1))
-   dset(1,0)
+   dset(2,0)
   else
    dset(1,0)
    dset(2,0)
@@ -936,8 +915,8 @@ function load_hiscores()
  end
 
  state.hiscore={}
- state.hiscore[0]=dget(1)
- state.hiscore[1]=dget(2)
+ state.hiscore[false]=dget(1)
+ state.hiscore[true]=dget(2)
  state.loscore=dget(3)
 
  if state.loscore==0 then
@@ -979,16 +958,16 @@ function reset_garden()
    liveliness_check:new(i)
   )
  end
- state.ini_steps=10
 end
 
 function start_game()
  state.t=0
  state.steps=0
- state.biomass_sum=0
  state.viewmode=5
  state.revive_wait=0
  state.num_revives=0
+ state.num_decays=0
+ state.num_mutations=0
  state.btnx_hold=0
  state.fadein=32
  state.history:reset()
@@ -1210,7 +1189,6 @@ function main_update()
  end
 
  state.steps+=1>>16
- state.biomass_sum+=total_cells>>16
 
  if state.history:count()==0 then
   gameover()
@@ -1236,13 +1214,13 @@ function gameover(
   end
  end
 
- local autoplay=max(
-  state.num_revives,1
+ local autoplay=(
+  state.num_revives==0
  )
  local improved_hi=false
  if score>state.hiscore[autoplay] then
   state.hiscore[autoplay]=score
-  dset(1+autoplay,score)
+  dset(autoplay and 2 or 1,score)
   improved_hi=true
  end
  printh(
@@ -1251,14 +1229,25 @@ function gameover(
   ", hiscore="..state.hiscore[autoplay]..
   "/"..u32_tostr(state.hiscore[autoplay])
  )
- state.autoplay=900
+ state.show_count=0
+
+ state.show_loscore=(
+  autoplay and
+  state.loscore<
+  state.hiscore[autoplay]
+ )
+ state.show_hiscore=(
+  not autoplay
+  or state.hiscore[autoplay]!=
+     state.loscore
+ )
 
  if improved_hi and
-    show_hiscore()
+    state.show_hiscore
  then
   music(0)
  elseif improved_lo and
-        show_loscore()
+        state.show_loscore
  then
   music(2)
  else
@@ -1286,13 +1275,27 @@ function gameover_draw()
 
  color(c_brown)
  local y=59
- local autoplay=max(
-  state.num_revives,1
+ local autoplay=(
+  state.num_revives==0
  )
  local score=state.steps
 
+ rprint("decays",70,y)
+ rprint(
+  u32_tostr(state.num_decays),
+  102,y
+ )
+ y+=6
+
+ rprint("mutations",70,y)
+ rprint(
+  u32_tostr(state.num_mutations),
+  102,y
+ )
+ y+=6
+
  if not autoplay then
-  rprint("num revives",70,y)
+  rprint("revives",70,y)
   rprint(
    u32_tostr(state.num_revives),
    102,y
@@ -1300,22 +1303,11 @@ function gameover_draw()
   y+=6
  end
 
- rprint("avg biomass",70,y)
- rprint(
-  u32_tostr(
-   (state.biomass_sum/
-    state.steps
-   )>>16
-  ),
-  102,y
- )
- y+=6
-
  rprint("score",70,y)
  rprint(u32_tostr(score),102,y)
  y+=10
 
- if show_loscore() then
+ if state.show_loscore then
   color(
    state.loscore==score
    and c_red or c_dgray
@@ -1327,7 +1319,7 @@ function gameover_draw()
   )
   y+=6
  end
- if show_hiscore() then
+ if state.show_hiscore then
   color(
    state.hiscore[autoplay]==score
    and c_dgreen or c_dgray
@@ -1342,27 +1334,24 @@ function gameover_draw()
 end
 
 function gameover_update()
- if state.ini_steps>0 then
-  state.ini_steps-=1
-  if state.ini_steps%1==0 then
-   for ca in all(state.gols) do
+ state.show_count+=1
+
+ if state.show_count%30==0 then
+  for ca in all(state.gols) do
     ca:step()
-   end
   end
  end
 
  foreach(
-  state.flowers,
-  flower.update
+  state.flowers,flower.update
  )
 
- state.autoplay-=1
- if
-  state.autoplay==0 or
-  state.ini_steps==0 and (
+ if (
+  state.show_count==899 or
+  state.show_count>45 and (
    btnp(❎) or btnp(🅾️)
   )
- then
+ ) then
   start_game()
  end
 end
@@ -1370,7 +1359,7 @@ end
 function show_title()
  reset_garden()
 
- state.autoplay=900
+ state.show_count=0
 
  _draw=title_draw
  _update=title_update
