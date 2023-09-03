@@ -9,12 +9,14 @@ max_cellfind_attempts=32
 num_decay_death_ticks=16
 mutate_prob=1/512
 history_len=80
+runsum_len=16
 liveliness_limit=50
 liveliness_decay=0.99
 liveliness_inc=100
 max_wait=6
 min_revive_delay=32
 cart_version=2
+sfx_orig=sfx
 
 -- colors so that:
 -- - intensity increases with
@@ -98,6 +100,14 @@ function shuffled(n)
   l[idx]=tmp
  end
  return l
+end
+
+function sfx_off()
+ sfx=function() end
+end
+
+function sfx_on()
+ sfx=sfx_orig
 end
 
 flower={}
@@ -599,19 +609,30 @@ end
 
 function cellhistory:reset()
  self.counts={}
+ self.runsum={}
  for i=1,#state.layers do
   self.counts[i]={}
+  self.runsum[i]=0
  end
 
- self.idx=history_len-1
+ self.idx=0
+ self.np=0
  self:count()
- self.wrapped=false
 end
 
 function cellhistory:num_cells(
  layer_idx
 )
  return self.counts[layer_idx][self.idx]
+end
+
+function cellhistory:cell_level(
+ layer_idx
+)
+ return min(4,ceil(
+  self.runsum[layer_idx]
+  /min(self.np,runsum_len)/100
+ ))
 end
 
 function cellhistory:total_cells()
@@ -634,19 +655,25 @@ function cellhistory:num_empty()
 end
 
 function cellhistory:count()
- self.idx+=1
- if self.idx==history_len then
-  self.idx=0
-  self.wrapped=true
- end
+ self.idx=(self.idx+1)%history_len
 
  local total=0
  for i,l in pairs(state.layers) do
   local ncells=
 	  self.counter:count_ca_bits(l)
   self.counts[i][self.idx]=ncells
+  self.runsum[i]+=ncells
+  if self.np>=runsum_len then
+   local j=(self.idx
+            +history_len
+            -runsum_len
+           )%history_len
+   self.runsum[i]-=self.counts[i][j]
+  end
   total+=ncells
  end
+
+ self.np=min(self.np+1,history_len)
 
  return total
 end
@@ -654,16 +681,14 @@ end
 function cellhistory:draw_plot()
  rectfill(24,32,103,95,0)
 
- local idx0=0
- local np=self.idx
- if self.wrapped then
-  idx0=(self.idx+1)%history_len
-  np=history_len
+ local idx0=self.idx
+ if self.np<history_len then
+  idx0=1
  end
 
  for i,h in pairs(self.counts) do
   local c=0x1<<(i-1)
-  for j=0,np-1 do
+  for j=0,self.np-1 do
    local v=h[(idx0+j)%history_len]
    -- use a log-like scale for
    -- the y-axis based on:
@@ -676,6 +701,12 @@ function cellhistory:draw_plot()
    local x=24+j
    pset(x,y,pget(x,y)|c)
   end
+ end
+ for i,v in pairs(self.runsum) do
+  local c=0x1<<(i-1)
+  color(c)
+  print(self:cell_level(i),
+        79+i*5,33)
  end
 end
 
@@ -888,74 +919,59 @@ tracks={
  {{20,21},{22},{23,24},{25,26}},
  {{27,28},{29},{30},{31}}
 }
-pattern_masks={
+patterns={
  [0]=0x0.0080,
  [1]=0x0.8000
 }
-cx=1
-levels={4,4,4,4}
 
+musicplayer={}
 
-function init_music()
- p_idx=1
- set_next_pattern()
+function musicplayer:new(history)
+ local o=setmetatable({},self)
+ self.__index=self
+
+ o.history=history
+
+ return o
 end
 
-function set_next_pattern()
- p_idx=(p_idx+1)%2
- local pat=pattern_masks[p_idx]
+function musicplayer:reset()
+ self.p_idx=1
+ self:nxt_pattern()
+ self:nxt_pattern()
+end
+
+function musicplayer:nxt_pattern()
+ self.p_idx=(self.p_idx+1)%2
+ local pat=patterns[self.p_idx]
  local nc=0
 
  for i=1,4 do
-  local v=0
-  if levels[i]>0 then
-   local sl=tracks[i][levels[i]]
-   v=sl[p_idx%#sl+1]&0x3f
+  local lvl=
+   self.history:cell_level(i)
+  if lvl>0 then
+   local sl=tracks[i][lvl]
+   local v=sl[
+    self.p_idx%#sl+1
+   ]&0x3f
    nc+=1
-   local shft=nc*8-24
-   pat|=v<<shft
+   pat|=v<<(nc*8-24)
   end
  end
+
+ --disable empty channels
  for i=nc+1,4 do
-  shft=i*8-24
-  pat|=0x40<<shft
+  pat|=0x40<<(i*8-24)
  end
 
- printh(p_idx.."="..pat)
- poke4(0x3100+p_idx*4,pat)
+ printh(self.p_idx.."="..pat)
+ poke4(0x3100+self.p_idx*4,pat)
 end
 
-function update_music()
- if btnp(⬆️) then
-  levels[cx]=min(4,levels[cx]+1)
- end
- if btnp(⬇️) then
-  levels[cx]=max(0,levels[cx]-1)
- end
- if btnp(⬅️) then
-  cx=(cx+2)%4+1
- end
- if btnp(➡️) then
-  cx=cx%4+1
- end
-
+function musicplayer:update()
  if (stat(50)==31 and
-     stat(54)==p_idx) then
-  set_next_pattern()
- end
-end
-
-function draw_music()
- cls()
- color(1)
- print(stat(54).."/"..stat(50),0,0)
- print(p_idx,0,6)
- print(tostr(peek4(0x3100),0x1))
- print(tostr(peek4(0x3104),0x1))
-
- for i=1,4 do
-  color(i==cx and 10 or 4)
-  print(levels[i],i*10,60)
+     stat(54)==self.p_idx) then
+  self:nxt_pattern()
  end
 end
 
@@ -1033,9 +1049,17 @@ function start_game()
  state.target_wait=state.wait
  state.wait=5
  state.history:reset()
+ state.music:reset()
 
  _draw=main_draw
  _update=main_update
+
+ --start music track if it is
+ --not already playing
+ if not stat(57)
+    or stat(54)>1 then
+  music(0)
+ end
 end
 
 function init_flowers()
@@ -1058,6 +1082,9 @@ function _init()
  state.flowers=init_flowers()
 
  state.history=cellhistory:new()
+ state.music=musicplayer:new(
+  state.history
+ )
 
  pal(display_palette,1)
 
@@ -1066,12 +1093,7 @@ function _init()
 
  show_title()
 
- init_music()
- music(0)
-
  --show_label()
- _update=update_music
- _draw=draw_music
 end
 
 function draw_border()
@@ -1284,6 +1306,7 @@ function main_update()
  end
 
  update_garden()
+ state.music:update()
 
  if state.history:count()==0 then
   gameover()
@@ -1338,13 +1361,13 @@ function gameover(
  if improved_hi and
     state.show_hiscore
  then
-  music(0)
+  music(4)
  elseif improved_lo and
         state.show_loscore
  then
   music(2)
  else
-  sfx(5)
+  music(6)
  end
 
  _draw=gameover_draw
@@ -1449,6 +1472,10 @@ function before_game_update(
  ) then
   start_game()
  end
+
+ if not stat(57) then
+  music(0)
+ end
 end
 
 function gameover_update()
@@ -1459,6 +1486,7 @@ function show_title()
  reset_garden()
 
  state.show_count=0
+ sfx_off()
 
  _draw=title_draw
  _update=title_update
@@ -1764,8 +1792,11 @@ a91600002154021540215322153221522215121f5401f5401f5321f5321f5221f5121c5401c5421c
 79160000247452d7452d7152d70000000247452d7452d715267452f7452f7150000000000000000000000000267452f7452f7150000000000267452f7452f7152874530745307150000000000000000000000000
 79160000247452d745247452d7452d7152d745267452f7452f7152f7452f715267452f745267452f7452f715267452f745267452f7452f7152f74528745307453071530745307152874530745307153074530715
 __music__
-01 01010101
-02 0a424242
+01 0d12191f
+02 0d131a1f
 00 05424344
 04 07424344
+00 05424344
+04 06424344
+04 05424344
 
