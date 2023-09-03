@@ -3,7 +3,7 @@ version 41
 __lua__
 -- pico garden
 -- a slow-play screensaver game
--- (c) 2022 eriban
+-- (c) 2022-2023 eriban
 
 max_cellfind_attempts=32
 num_decay_death_ticks=16
@@ -670,7 +670,7 @@ end
 function cellhistory:draw_plot()
  rectfill(24,32,103,95,0)
 
- local idx0=self.idx
+ local idx0=(self.idx+1)%history_len
  if self.np<history_len then
   idx0=1
  end
@@ -953,13 +953,16 @@ function musicplayer:nxt_pattern()
   pat|=0x40<<(i*8-24)
  end
 
- printh(self.p_idx.."="..pat)
  poke4(0x3100+self.p_idx*4,pat)
 end
 
+function musicplayer:pattern_due()
+ return (stat(50)>30 and
+         stat(54)==self.p_idx)
+end
+
 function musicplayer:update()
- if (stat(50)==31 and
-     stat(54)==self.p_idx) then
+ if self:pattern_due() then
   self:nxt_pattern()
  end
 end
@@ -1440,8 +1443,12 @@ function before_game_update(
   state.flowers[i]:update()
  end
 
- if (
-  state.show_count==899 or
+ if ((
+   state.show_count>=600 and
+   --ensure music updates right
+   --away
+   state.music:pattern_due()
+  ) or
   state.show_count>45 and (
    btnp(❎) or btnp(🅾️)
   )
@@ -1471,7 +1478,7 @@ function title_draw()
  rectfill(23,31,103,95,0)
 
  spr(3,46,51,5,2)
- color(c_dgray)
+ color(c_purple)
  cprint("by eriban",71)
 
  local x=0
