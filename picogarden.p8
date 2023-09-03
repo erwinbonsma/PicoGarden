@@ -1,5 +1,5 @@
 pico-8 cartridge // http://www.pico-8.com
-version 35
+version 41
 __lua__
 -- pico garden
 -- a slow-play screensaver game
@@ -882,6 +882,84 @@ function revive(cas)
 end
 
 -->8
+tracks={
+ {{10},{11},{12},{13}},
+ {{14},{15,16},{17},{18,19}},
+ {{20,21},{22},{23,24},{25,26}},
+ {{27,28},{29},{30},{31}}
+}
+pattern_masks={
+ [0]=0x0.0080,
+ [1]=0x0.8000
+}
+cx=1
+levels={4,4,4,4}
+
+
+function init_music()
+ p_idx=1
+ set_next_pattern()
+end
+
+function set_next_pattern()
+ p_idx=(p_idx+1)%2
+ local pat=pattern_masks[p_idx]
+ local nc=0
+
+ for i=1,4 do
+  local v=0
+  if levels[i]>0 then
+   local sl=tracks[i][levels[i]]
+   v=sl[p_idx%#sl+1]&0x3f
+   nc+=1
+   local shft=nc*8-24
+   pat|=v<<shft
+  end
+ end
+ for i=nc+1,4 do
+  shft=i*8-24
+  pat|=0x40<<shft
+ end
+
+ printh(p_idx.."="..pat)
+ poke4(0x3100+p_idx*4,pat)
+end
+
+function update_music()
+ if btnp(⬆️) then
+  levels[cx]=min(4,levels[cx]+1)
+ end
+ if btnp(⬇️) then
+  levels[cx]=max(0,levels[cx]-1)
+ end
+ if btnp(⬅️) then
+  cx=(cx+2)%4+1
+ end
+ if btnp(➡️) then
+  cx=cx%4+1
+ end
+
+ if (stat(50)==31 and
+     stat(54)==p_idx) then
+  set_next_pattern()
+ end
+end
+
+function draw_music()
+ cls()
+ color(1)
+ print(stat(54).."/"..stat(50),0,0)
+ print(p_idx,0,6)
+ print(tostr(peek4(0x3100),0x1))
+ print(tostr(peek4(0x3104),0x1))
+
+ for i=1,4 do
+  color(i==cx and 10 or 4)
+  print(levels[i],i*10,60)
+ end
+end
+
+-->8
 function init_expand()
  local expand={}
 
@@ -987,7 +1065,13 @@ function _init()
  poke(0x5f5c,255)
 
  show_title()
+
+ init_music()
+ music(0)
+
  --show_label()
+ _update=update_music
+ _draw=draw_music
 end
 
 function draw_border()
@@ -1680,8 +1764,8 @@ a91600002154021540215322153221522215121f5401f5401f5321f5321f5221f5121c5401c5421c
 79160000247452d7452d7152d70000000247452d7452d715267452f7452f7150000000000000000000000000267452f7452f7150000000000267452f7452f7152874530745307150000000000000000000000000
 79160000247452d745247452d7452d7152d745267452f7452f7152f7452f715267452f745267452f7452f715267452f745267452f7452f7152f74528745307453071530745307152874530745307153074530715
 __music__
-00 05424344
-04 06424344
+01 01010101
+02 0a424242
 00 05424344
 04 07424344
 
