@@ -119,7 +119,7 @@ end
 function flower:update()
  if rnd(256)<128 then
   self.grow_count+=1
-  if self.grow_count%90==0 then
+  if self.grow_count%60==0 then
    self.frame+=1
   end
  end
@@ -920,13 +920,14 @@ function musicplayer:new(history)
  self.__index=self
 
  o.history=history
+ o.p_idx=1
 
  return o
 end
 
 function musicplayer:reset()
- self.p_idx=1
- self:nxt_pattern()
+ --sync pattern index with music
+ self.p_idx=stat(54)
  self:nxt_pattern()
 end
 
@@ -1430,7 +1431,7 @@ function gameover_draw()
 end
 
 function before_game_update(
- nflowers
+ nflowers,autoplay_limit
 )
  state.show_count+=1
 
@@ -1444,7 +1445,8 @@ function before_game_update(
  end
 
  if ((
-   state.show_count>=600 and
+   state.show_count
+    >=autoplay_limit and
    --ensure music updates right
    --away
    state.music:pattern_due()
@@ -1458,7 +1460,7 @@ function before_game_update(
 end
 
 function gameover_update()
- before_game_update(2)
+ before_game_update(2,300)
 end
 
 function show_title()
@@ -1499,7 +1501,7 @@ function title_draw()
 end
 
 function title_update()
- before_game_update(14)
+ before_game_update(14,600)
 end
 
 -->8
